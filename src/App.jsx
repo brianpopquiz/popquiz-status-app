@@ -1,5 +1,5 @@
 // PopQuiz MSP Status Tracker - Web App
-// Connected to Supabase backend with start/done logging, auto-refresh, manager override, and report download
+// Now includes filters for active, idle, and completed tasks, with EST time formatting for CSV export
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -27,11 +27,22 @@ const CLIENTS = [
   "Residential Member", "Residential"
 ];
 
+function formatESTTime(isoTime) {
+  return new Date(isoTime).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
 export default function Dashboard() {
   const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
   const [status, setStatus] = useState("");
   const [client, setClient] = useState("");
   const [logs, setLogs] = useState([]);
+  const [filter, setFilter] = useState("active");
 
   const handleStart = async () => {
     if (!tech || !status) return;
@@ -58,13 +69,13 @@ export default function Dashboard() {
 
   const handleExport = () => {
     const csv = [
-      ["Tech", "Status", "Client", "Start Time", "End Time"],
+      ["Tech", "Status", "Client", "Start Time (EST)", "End Time (EST)"],
       ...logs.map(log => [
         log.tech,
         log.status,
         log.client,
-        log.startTime,
-        log.endTime || ""
+        formatESTTime(log.startTime),
+        log.endTime ? formatESTTime(log.endTime) : ""
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -84,6 +95,13 @@ export default function Dashboard() {
   }, []);
 
   const isManager = MANAGERS.includes(tech);
+
+  const filteredLogs = logs.filter(log => {
+    if (filter === "active") return log.endTime === null;
+    if (filter === "completed") return log.endTime !== null;
+    if (filter === "idle") return !logs.some(l => l.tech === log.tech && l.endTime === null);
+    return true;
+  });
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -141,14 +159,20 @@ export default function Dashboard() {
         </>
       )}
 
+      <div className="flex gap-4 mb-4">
+        <button className={`px-3 py-1 rounded ${filter === "active" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("active")}>Active</button>
+        <button className={`px-3 py-1 rounded ${filter === "idle" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("idle")}>Idle</button>
+        <button className={`px-3 py-1 rounded ${filter === "completed" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("completed")}>Completed</button>
+      </div>
+
       <h2 className="text-xl font-semibold mb-2">Current Activity</h2>
       <div className="grid gap-4">
-        {logs.map((log) => (
+        {filteredLogs.map((log) => (
           <div key={log.id} className="border p-4 rounded shadow">
             <p className="font-semibold">{log.tech}</p>
             <p>Status: {log.status} {log.client && `(${log.client})`}</p>
-            <p>Started: {new Date(log.startTime).toLocaleTimeString()}</p>
-            {log.endTime && <p className="text-green-700">Done: {new Date(log.endTime).toLocaleTimeString()}</p>}
+            <p>Started: {formatESTTime(log.startTime)}</p>
+            {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
             {!log.endTime && (log.tech === tech || isManager) && (
               <button
                 onClick={() => handleDone(log.id)}
