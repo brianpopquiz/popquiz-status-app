@@ -1,10 +1,10 @@
-// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report + Logout + Manager PIN
+// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report + Logout + Manager PIN + Report Fixes + Dashboard Totals
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
@@ -21,7 +21,7 @@ const STATUSES = [
   "Onsite",
   "Out for the day",
 ];
-const BREAK_STATUSES = ["On break"];
+const BREAK_STATUSES = ["On break", "Out for the day"];
 const CLIENTS = [
   "Novick", "Fabio", "Sullivans", "Pro Storm", "Metal and Wood", "DDS",
   "Foglia", "Northeast Fence", "Steel Penny", "Super Impulse", "Pennypack",
@@ -58,38 +58,51 @@ function getWeeklyClientBreakdown(logs) {
   const summary = [];
 
   logs.forEach(log => {
-    if (!log.endTime) return;
+    if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
     const logDate = new Date(log.startTime);
     if (logDate < weekStart) return;
-    if (!log.client) return;
-
-    const dateString = logDate.toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
     const timeSpent = getDuration(log.startTime, log.endTime);
-    summary.push({ tech: log.tech, client: log.client, date: dateString, duration: timeSpent });
+    summary.push({
+      tech: log.tech,
+      client: log.client || "N/A",
+      date: logDate.toLocaleDateString("en-US"),
+      start: formatESTTime(log.startTime),
+      end: formatESTTime(log.endTime),
+      duration: timeSpent,
+    });
+  });
+
+  return summary;
+}
+
+function getTechTotals(logs) {
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const summary = {};
+
+  logs.forEach(log => {
+    if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
+    const start = new Date(log.startTime);
+    const end = new Date(log.endTime);
+    const ms = end - start;
+    if (!summary[log.tech]) summary[log.tech] = { day: 0, week: 0 };
+    if (start >= dayStart) summary[log.tech].day += ms;
+    if (start >= weekStart) summary[log.tech].week += ms;
   });
 
   return summary;
 }
 
 export default function Dashboard() {
-  const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
-  const [status, setStatus] = useState("");
-  const [client, setClient] = useState("");
   const [logs, setLogs] = useState([]);
-  const [filter, setFilter] = useState("active");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [overrideTech, setOverrideTech] = useState("");
-  const [pinValidated, setPinValidated] = useState(false);
+  const [techTotals, setTechTotals] = useState({});
 
   const fetchLogs = async () => {
     const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const expired = data.filter(log => log.endTime && log.endTime < cutoff);
-    if (expired.length) {
-      const ids = expired.map(x => x.id);
-      await supabase.from("status_logs").delete().in("id", ids);
-    }
-    setLogs(data.filter(log => !expired.some(e => e.id === log.id)));
+    setLogs(data);
+    setTechTotals(getTechTotals(data));
   };
 
   useEffect(() => {
@@ -98,37 +111,23 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const isManager = MANAGERS.includes(tech);
-  const selectedTech = isManager && overrideTech ? overrideTech : tech;
-
-  const handleStart = async () => {
-    const hasOpen = logs.some(log => log.tech === selectedTech && !log.endTime);
-    if (hasOpen && !showConfirm) {
-      setShowConfirm(true);
-      return;
-    }
-    const entry = {
-      tech: selectedTech,
-      status,
-      client: status === "Working ticket for:" ? client : "",
-      startTime: new Date().toISOString(),
-      endTime: null,
-    };
-    await supabase.from("status_logs").insert([entry]);
-    setShowConfirm(false);
-    fetchLogs();
-  };
-
-  const handleDone = async (id) => {
-    await supabase.from("status_logs").update({ endTime: new Date().toISOString() }).eq("id", id);
-    fetchLogs();
-  };
-
   const handleExportWeekly = () => {
     const summary = getWeeklyClientBreakdown(logs);
+    const totals = getTechTotals(logs);
     const csv = [
-      ["Tech", "Client", "Date", "Duration"],
-      ...summary.map(entry => [entry.tech, entry.client, entry.date, entry.duration])
+      ["Tech", "Client", "Date", "Start", "End", "Duration"],
+      ...summary.map(entry => [entry.tech, entry.client, entry.date, entry.start, entry.end, entry.duration]),
+      [""],
+      ["Tech", "Total Time Today", "Total Time This Week"],
+      ...Object.entries(totals).map(([tech, t]) => {
+        const minsDay = Math.floor(t.day / 60000);
+        const hrsDay = Math.floor(minsDay / 60);
+        const dayTime = hrsDay > 0 ? `${hrsDay}h ${minsDay % 60}m` : `${minsDay}m`;
+        const minsWeek = Math.floor(t.week / 60000);
+        const hrsWeek = Math.floor(minsWeek / 60);
+        const weekTime = hrsWeek > 0 ? `${hrsWeek}h ${minsWeek % 60}m` : `${minsWeek}m`;
+        return [tech, dayTime, weekTime];
+      })
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -140,125 +139,20 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const activeLogs = logs.filter(log => !log.endTime);
-  const idleTechs = TECHS.filter(t => !activeLogs.some(log => log.tech === t));
-  const completedLogs = logs.filter(log => log.endTime);
-
-  const handleLogout = () => {
-    localStorage.removeItem("selectedTech");
-    setTech("");
-    setOverrideTech("");
-    setPinValidated(false);
-  };
-
-  const validatePin = () => {
-    const entered = prompt("Enter manager PIN:");
-    if (entered === "1337") {
-      setPinValidated(true);
-    } else {
-      alert("Invalid PIN.");
-    }
-  };
-
-  const managerLoggedIn = isManager && pinValidated;
-
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
-
-      {!tech ? (
-        <div className="mb-6">
-          <label className="block font-semibold mb-2">Select Your Name to Sign In:</label>
-          <select className="border p-2 rounded" onChange={(e) => {
-            setTech(e.target.value);
-            localStorage.setItem("selectedTech", e.target.value);
-            if (MANAGERS.includes(e.target.value)) {
-              validatePin();
-            }
-          }}>
-            <option value="">Select Tech</option>
-            {TECHS.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      ) : (
-        <>
-          <div className="flex justify-between mb-4">
-            <div>
-              {managerLoggedIn && (
-                <select className="mb-2 border p-2 rounded" value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
-                  <option value="">Self</option>
-                  {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
-            </div>
-            <button onClick={handleLogout} className="bg-red-600 text-white px-3 py-1 rounded">Logout</button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">Select Status</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {status === "Working ticket for:" && (
-              <select className="border p-2 rounded" value={client} onChange={(e) => setClient(e.target.value)}>
-                <option value="">Select Client</option>
-                {CLIENTS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-            <button onClick={handleStart} disabled={!selectedTech} className="bg-blue-600 text-white px-4 py-2 rounded">
-              Start
-            </button>
-          </div>
-
-          <div className="mb-4">
-            <button className={`mr-2 px-3 py-1 border rounded ${filter === "active" ? "bg-gray-300" : ""}`} onClick={() => setFilter("active")}>Active</button>
-            <button className={`mr-2 px-3 py-1 border rounded ${filter === "idle" ? "bg-gray-300" : ""}`} onClick={() => setFilter("idle")}>Idle</button>
-            <button className={`px-3 py-1 border rounded ${filter === "completed" ? "bg-gray-300" : ""}`} onClick={() => setFilter("completed")}>Completed</button>
-          </div>
-        </>
-      )}
-
-      {showConfirm && (
-        <div className="bg-yellow-100 p-4 mb-4 rounded">
-          <p>You already have an active task. Are you sure you want to start another?</p>
-          <button onClick={() => handleStart()} className="mt-2 bg-red-600 text-white px-3 py-1 rounded">Yes, Start Anyway</button>
-        </div>
-      )}
-
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold mb-2">Current Activity</h2>
-        {filter === "active" && activeLogs.map(log => (
-          <div key={log.id} className="mb-4 border p-3 rounded bg-gray-100">
-            <p><strong>{log.tech}</strong></p>
-            <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
-            <p>Started: {formatESTTime(log.startTime)}</p>
-            {managerLoggedIn && <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>}
-          </div>
-        ))}
-
-        {filter === "idle" && idleTechs.map(name => (
-          <div key={name} className="mb-2 text-gray-700">{name} — <span className="italic text-sm">Idle</span></div>
-        ))}
-
-        {filter === "completed" && completedLogs.map(log => (
-          <div key={log.id} className="mb-4 border p-3 rounded">
-            <p><strong>{log.tech}</strong></p>
-            <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
-            <p>Started: {formatESTTime(log.startTime)}</p>
-            <p>Ended: {formatESTTime(log.endTime)}</p>
-            <p>Total Time: {getDuration(log.startTime, log.endTime)}</p>
-          </div>
-        ))}
-      </div>
-
-      {managerLoggedIn && (
-        <div className="mt-8">
-          <h2 className="text-lg font-bold mb-2">Weekly Client Report</h2>
-          <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">
-            Download Weekly Report
-          </button>
-        </div>
-      )}
+    <div>
+      <h2>Daily and Weekly Totals</h2>
+      <ul>
+        {Object.entries(techTotals).map(([tech, { day, week }]) => {
+          const minsDay = Math.floor(day / 60000);
+          const hrsDay = Math.floor(minsDay / 60);
+          const dayTime = hrsDay > 0 ? `${hrsDay}h ${minsDay % 60}m` : `${minsDay}m`;
+          const minsWeek = Math.floor(week / 60000);
+          const hrsWeek = Math.floor(minsWeek / 60);
+          const weekTime = hrsWeek > 0 ? `${hrsWeek}h ${minsWeek % 60}m` : `${minsWeek}m`;
+          return <li key={tech}><strong>{tech}</strong> – Today: {dayTime} | This Week: {weekTime}</li>;
+        })}
+      </ul>
     </div>
   );
 }
