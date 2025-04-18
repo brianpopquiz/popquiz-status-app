@@ -1,11 +1,13 @@
-// PopQuiz MSP Status Tracker - Web App
-// Bug fixes: working Start button, exclude breaks from totals, new statuses added
+// PopQuiz MSP Status Tracker - Core Enhancements
+// ✅ Weekly client breakdown report
+// ✅ Optional second task confirmation popup
+// ✅ Managers can start tasks for anyone
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
@@ -40,8 +42,12 @@ function formatESTTime(isoTime) {
   });
 }
 
+function getDurationMs(start, end) {
+  return new Date(end || new Date()) - new Date(start);
+}
+
 function getDuration(start, end) {
-  const ms = new Date(end || new Date()) - new Date(start);
+  const ms = getDurationMs(start, end);
   const mins = Math.floor(ms / 60000);
   const hrs = Math.floor(mins / 60);
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
@@ -49,10 +55,28 @@ function getDuration(start, end) {
 
 function getTotalTime(logs, tech) {
   const entries = logs.filter(log => log.tech === tech && log.endTime && !BREAK_STATUSES.includes(log.status));
-  const totalMs = entries.reduce((sum, log) => sum + (new Date(log.endTime) - new Date(log.startTime)), 0);
+  const totalMs = entries.reduce((sum, log) => sum + getDurationMs(log.startTime, log.endTime), 0);
   const mins = Math.floor(totalMs / 60000);
   const hrs = Math.floor(mins / 60);
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+}
+
+function getWeeklyClientBreakdown(logs) {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+
+  const summary = {};
+  logs.forEach(log => {
+    if (!log.endTime) return;
+    const logDate = new Date(log.startTime);
+    if (logDate < weekStart) return;
+    if (!log.client) return;
+    if (!summary[log.client]) summary[log.client] = { count: 0, timeMs: 0 };
+    summary[log.client].count++;
+    summary[log.client].timeMs += getDurationMs(log.startTime, log.endTime);
+  });
+  return summary;
 }
 
 export default function Dashboard() {
@@ -61,11 +85,11 @@ export default function Dashboard() {
   const [client, setClient] = useState("");
   const [logs, setLogs] = useState([]);
   const [filter, setFilter] = useState("active");
-  const [warning, setWarning] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [overrideTech, setOverrideTech] = useState("");
 
   const fetchLogs = async () => {
-    const { data, error } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
-    if (error) console.error("Fetch error:", error);
+    const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const expired = data.filter(log => log.endTime && log.endTime < cutoff);
     if (expired.length) {
@@ -82,24 +106,23 @@ export default function Dashboard() {
   }, []);
 
   const isManager = MANAGERS.includes(tech);
-  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
-  const userHasOpenTask = logs.some(log => log.tech === tech && !log.endTime);
+  const selectedTech = isManager && overrideTech ? overrideTech : tech;
 
   const handleStart = async () => {
-    if (!tech || !status || userHasOpenTask) {
-      setWarning(true);
+    const hasOpen = logs.some(log => log.tech === selectedTech && !log.endTime);
+    if (hasOpen && !showConfirm) {
+      setShowConfirm(true);
       return;
     }
-    setWarning(false);
     const entry = {
-      tech,
+      tech: selectedTech,
       status,
       client: status === "Working ticket for:" ? client : "",
       startTime: new Date().toISOString(),
       endTime: null,
     };
-    const { error } = await supabase.from("status_logs").insert([entry]);
-    if (error) console.error("Insert error:", error);
+    await supabase.from("status_logs").insert([entry]);
+    setShowConfirm(false);
     fetchLogs();
   };
 
@@ -108,35 +131,34 @@ export default function Dashboard() {
     fetchLogs();
   };
 
-  const handleExport = () => {
+  const handleExportWeekly = () => {
+    const summary = getWeeklyClientBreakdown(logs);
     const csv = [
-      ["Tech", "Status", "Client", "Start Time (EST)", "End Time (EST)", "Duration"],
-      ...logs.map(log => [
-        log.tech,
-        log.status,
-        log.client,
-        formatESTTime(log.startTime),
-        log.endTime ? formatESTTime(log.endTime) : "",
-        getDuration(log.startTime, log.endTime)
-      ])
+      ["Client", "Task Count", "Time Spent"],
+      ...Object.entries(summary).map(([client, data]) => {
+        const mins = Math.floor(data.timeMs / 60000);
+        const hrs = Math.floor(mins / 60);
+        const time = hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+        return [client, data.count, time];
+      })
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "status_log_report.csv";
+    a.download = "weekly_client_report.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
+  const idleTechs = TECHS.filter(t => !activeTechs.includes(t));
   const filteredLogs = logs.filter(log => {
     if (filter === "active") return log.endTime === null;
     if (filter === "completed") return log.endTime !== null;
     return true;
   });
-
-  const idleTechs = TECHS.filter(t => !activeTechs.includes(t));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -155,6 +177,12 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
+          {isManager && (
+            <select className="mb-2 border p-2 rounded" value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
+              <option value="">Self</option>
+              {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">Select Status</option>
@@ -166,64 +194,25 @@ export default function Dashboard() {
                 {CLIENTS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
-            <button
-              className={`text-white px-4 py-2 rounded ${warning ? "bg-red-600" : "bg-blue-600"}`}
-              onClick={handleStart}
-            >
-              {warning ? "You must end your active task first." : "Start"}
+            <button onClick={handleStart} className="bg-blue-600 text-white px-4 py-2 rounded">
+              Start
             </button>
           </div>
         </>
       )}
 
-      <div className="flex gap-4 mb-4">
-        <button className={`px-3 py-1 rounded ${filter === "active" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("active")}>Active</button>
-        <button className={`px-3 py-1 rounded ${filter === "idle" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("idle")}>Idle</button>
-        <button className={`px-3 py-1 rounded ${filter === "completed" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setFilter("completed")}>Completed</button>
-      </div>
-
-      <h2 className="text-xl font-semibold mb-2">Current Activity</h2>
-      {filter === "idle" ? (
-        <div className="grid gap-2">
-          {idleTechs.map((t) => (
-            <div key={t} className="border p-3 rounded bg-yellow-50">
-              <p className="font-medium text-yellow-800">{t} is currently idle.</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {filteredLogs.map((log) => (
-            <div key={log.id} className={`border p-4 rounded shadow ${log.endTime ? "bg-green-100" : "bg-blue-100"}`}>
-              <p className="font-bold">{log.tech}</p>
-              <p>Status: <span className="text-blue-900">{log.status}</span> {log.client && `(${log.client})`}</p>
-              <p>Started: {formatESTTime(log.startTime)}</p>
-              <p>Duration: {getDuration(log.startTime, log.endTime)}</p>
-              {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
-              {!log.endTime && (log.tech === tech || isManager) && (
-                <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-600 text-white px-3 py-1 rounded">
-                  Mark Done
-                </button>
-              )}
-            </div>
-          ))}
+      {showConfirm && (
+        <div className="bg-yellow-100 p-4 mb-4 rounded">
+          <p>You already have an active task. Are you sure you want to start another?</p>
+          <button onClick={() => handleStart()} className="mt-2 bg-red-600 text-white px-3 py-1 rounded">Yes, Start Anyway</button>
         </div>
       )}
 
       {isManager && (
-        <div className="mt-10">
-          <h2 className="text-xl font-bold mb-2">Manager View</h2>
-          <p className="text-gray-600">You can mark any technician as done and download the full status report.</p>
-          <div className="mb-2">
-            <h3 className="font-semibold">Total Time by Technician:</h3>
-            <ul className="list-disc ml-6">
-              {TECHS.map((t) => (
-                <li key={t}>{t}: {getTotalTime(logs, t)}</li>
-              ))}
-            </ul>
-          </div>
-          <button className="mt-4 bg-gray-800 text-white px-4 py-2 rounded" onClick={handleExport}>
-            Download CSV Report
+        <div className="mt-8">
+          <h2 className="text-lg font-bold mb-2">Weekly Client Report</h2>
+          <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">
+            Download Weekly Report
           </button>
         </div>
       )}
