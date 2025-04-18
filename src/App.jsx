@@ -1,7 +1,4 @@
-// PopQuiz MSP Status Tracker - Core Enhancements
-// ✅ Weekly client breakdown report
-// ✅ Optional second task confirmation popup
-// ✅ Managers can start tasks for anyone
+// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -53,29 +50,24 @@ function getDuration(start, end) {
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
 }
 
-function getTotalTime(logs, tech) {
-  const entries = logs.filter(log => log.tech === tech && log.endTime && !BREAK_STATUSES.includes(log.status));
-  const totalMs = entries.reduce((sum, log) => sum + getDurationMs(log.startTime, log.endTime), 0);
-  const mins = Math.floor(totalMs / 60000);
-  const hrs = Math.floor(mins / 60);
-  return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
-}
-
 function getWeeklyClientBreakdown(logs) {
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay());
 
-  const summary = {};
+  const summary = [];
+
   logs.forEach(log => {
     if (!log.endTime) return;
     const logDate = new Date(log.startTime);
     if (logDate < weekStart) return;
     if (!log.client) return;
-    if (!summary[log.client]) summary[log.client] = { count: 0, timeMs: 0 };
-    summary[log.client].count++;
-    summary[log.client].timeMs += getDurationMs(log.startTime, log.endTime);
+
+    const dateString = logDate.toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
+    const timeSpent = getDuration(log.startTime, log.endTime);
+    summary.push({ client: log.client, date: dateString, duration: timeSpent });
   });
+
   return summary;
 }
 
@@ -134,13 +126,8 @@ export default function Dashboard() {
   const handleExportWeekly = () => {
     const summary = getWeeklyClientBreakdown(logs);
     const csv = [
-      ["Client", "Task Count", "Time Spent"],
-      ...Object.entries(summary).map(([client, data]) => {
-        const mins = Math.floor(data.timeMs / 60000);
-        const hrs = Math.floor(mins / 60);
-        const time = hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
-        return [client, data.count, time];
-      })
+      ["Client", "Date", "Duration"],
+      ...summary.map(entry => [entry.client, entry.date, entry.duration])
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -151,14 +138,6 @@ export default function Dashboard() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
-  const idleTechs = TECHS.filter(t => !activeTechs.includes(t));
-  const filteredLogs = logs.filter(log => {
-    if (filter === "active") return log.endTime === null;
-    if (filter === "completed") return log.endTime !== null;
-    return true;
-  });
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
