@@ -1,10 +1,10 @@
-// PopQuiz MSP Status Tracker - Full App (Admin Persist + Live Task View Fix)
+// PopQuiz MSP Status Tracker - Full App (Admin Edit Entries Enabled)
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
@@ -55,6 +55,13 @@ function getDuration(start, end) {
   const mins = Math.floor(ms / 60000);
   const hrs = Math.floor(mins / 60);
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+}
+
+function formatForInput(dt) {
+  const date = new Date(dt);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 }
 
 function getWeeklyClientBreakdown(logs) {
@@ -112,6 +119,9 @@ export default function App() {
   const [overrideTech, setOverrideTech] = useState("");
   const [filter, setFilter] = useState("active");
   const [confirmSecond, setConfirmSecond] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
 
   const selectedTech = isAdmin && overrideTech ? overrideTech : tech;
 
@@ -142,7 +152,6 @@ export default function App() {
       endTime: null
     };
     await supabase.from("status_logs").insert([newEntry]);
-
     setConfirmSecond(false);
     setLogs(prev => [newEntry, ...prev]);
     setTimeout(fetchLogs, 500);
@@ -160,28 +169,13 @@ export default function App() {
     }
   };
 
-  const handleExportWeekly = () => {
-    const summary = getWeeklyClientBreakdown(logs);
-    const totals = getTechTotals(logs);
-    const csv = [
-      ["Tech", "Client", "Date", "Start", "End", "Duration"],
-      ...summary.map(x => [x.tech, x.client, x.date, x.start, x.end, x.duration]),
-      [""],
-      ["Tech", "Total Time Today", "Total Time This Week"],
-      ...Object.entries(totals).map(([t, d]) => {
-        const day = getDuration(0, d.day);
-        const week = getDuration(0, d.week);
-        return [t, day, week];
-      })
-    ].map(r => r.join(",")).join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "weekly_client_report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleEditSubmit = async (id) => {
+    await supabase.from("status_logs").update({
+      startTime: new Date(editStart).toISOString(),
+      endTime: new Date(editEnd).toISOString()
+    }).eq("id", id);
+    setEditingId(null);
+    fetchLogs();
   };
 
   const techTotals = getTechTotals(logs);
@@ -278,7 +272,21 @@ export default function App() {
                   <div key={log.id} className="text-sm text-gray-700">
                     ✅ {log.tech} – {log.status} {log.client && `(${log.client})`} | {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
                     {isAdmin && (
-                      <button onClick={() => handleDelete(log.id)} className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded text-xs">Delete</button>
+                      <>
+                        <button onClick={() => {
+                          setEditingId(log.id);
+                          setEditStart(formatForInput(log.startTime));
+                          setEditEnd(formatForInput(log.endTime));
+                        }} className="ml-2 bg-yellow-500 text-white px-2 py-0.5 rounded text-xs">Edit</button>
+                        <button onClick={() => handleDelete(log.id)} className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded text-xs">Delete</button>
+                      </>
+                    )}
+                    {editingId === log.id && (
+                      <div className="mt-2">
+                        <input type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="mr-2" />
+                        <input type="datetime-local" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="mr-2" />
+                        <button onClick={() => handleEditSubmit(log.id)} className="bg-blue-600 text-white px-2 py-1 rounded text-xs">Save</button>
+                      </div>
                     )}
                   </div>
                 ))}
