@@ -1,4 +1,4 @@
-// PopQuiz MSP Status Tracker - Full Dashboard View + Weekly Report Enhancements
+// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -65,7 +65,7 @@ function getWeeklyClientBreakdown(logs) {
 
     const dateString = logDate.toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
     const timeSpent = getDuration(log.startTime, log.endTime);
-    summary.push({ client: log.client, date: dateString, duration: timeSpent, tech: log.tech });
+    summary.push({ tech: log.tech, client: log.client, date: dateString, duration: timeSpent });
   });
 
   return summary;
@@ -126,8 +126,8 @@ export default function Dashboard() {
   const handleExportWeekly = () => {
     const summary = getWeeklyClientBreakdown(logs);
     const csv = [
-      ["Client", "Date", "Tech", "Duration"],
-      ...summary.map(entry => [entry.client, entry.date, entry.tech, entry.duration])
+      ["Tech", "Client", "Date", "Duration"],
+      ...summary.map(entry => [entry.tech, entry.client, entry.date, entry.duration])
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -140,8 +140,8 @@ export default function Dashboard() {
   };
 
   const activeLogs = logs.filter(log => !log.endTime);
-  const completedLogs = logs.filter(log => log.endTime !== null);
   const idleTechs = TECHS.filter(t => !activeLogs.some(log => log.tech === t));
+  const completedLogs = logs.filter(log => log.endTime);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -177,9 +177,15 @@ export default function Dashboard() {
                 {CLIENTS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
-            <button onClick={handleStart} className="bg-blue-600 text-white px-4 py-2 rounded">
+            <button onClick={handleStart} disabled={!selectedTech} className="bg-blue-600 text-white px-4 py-2 rounded">
               Start
             </button>
+          </div>
+
+          <div className="mb-4">
+            <button className={`mr-2 px-3 py-1 border rounded ${filter === "active" ? "bg-gray-300" : ""}`} onClick={() => setFilter("active")}>Active</button>
+            <button className={`mr-2 px-3 py-1 border rounded ${filter === "idle" ? "bg-gray-300" : ""}`} onClick={() => setFilter("idle")}>Idle</button>
+            <button className={`px-3 py-1 border rounded ${filter === "completed" ? "bg-gray-300" : ""}`} onClick={() => setFilter("completed")}>Completed</button>
           </div>
         </>
       )}
@@ -192,33 +198,27 @@ export default function Dashboard() {
       )}
 
       <div className="mt-6">
-        <div className="flex gap-4 mb-4">
-          <button onClick={() => setFilter("active")} className={`px-4 py-2 rounded ${filter === "active" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Active</button>
-          <button onClick={() => setFilter("idle")} className={`px-4 py-2 rounded ${filter === "idle" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Idle</button>
-          <button onClick={() => setFilter("completed")} className={`px-4 py-2 rounded ${filter === "completed" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Completed</button>
-        </div>
-
+        <h2 className="text-lg font-semibold mb-2">Current Activity</h2>
         {filter === "active" && activeLogs.map(log => (
           <div key={log.id} className="mb-4 border p-3 rounded bg-gray-100">
             <p><strong>{log.tech}</strong></p>
             <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
             <p>Started: {formatESTTime(log.startTime)}</p>
-            {isManager && (
-              <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>
-            )}
+            {isManager && <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>}
           </div>
         ))}
 
-        {filter === "idle" && idleTechs.map((t) => (
-          <div key={t} className="mb-2 p-2 border rounded bg-yellow-50">{t} is currently idle</div>
+        {filter === "idle" && idleTechs.map(name => (
+          <div key={name} className="mb-2 text-gray-700">{name} — <span className="italic text-sm">Idle</span></div>
         ))}
 
         {filter === "completed" && completedLogs.map(log => (
-          <div key={log.id} className="mb-3 border p-3 rounded bg-green-100">
+          <div key={log.id} className="mb-4 border p-3 rounded">
             <p><strong>{log.tech}</strong></p>
-            <p>{log.status} {log.client && `(${log.client})`}</p>
-            <p>{formatESTTime(log.startTime)} - {formatESTTime(log.endTime)}</p>
-            <p>Total: {getDuration(log.startTime, log.endTime)}</p>
+            <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
+            <p>Started: {formatESTTime(log.startTime)}</p>
+            <p>Ended: {formatESTTime(log.endTime)}</p>
+            <p>Total Time: {getDuration(log.startTime, log.endTime)}</p>
           </div>
         ))}
       </div>
@@ -234,4 +234,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
