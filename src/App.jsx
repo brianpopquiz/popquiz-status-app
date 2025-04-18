@@ -1,11 +1,11 @@
 // PopQuiz MSP Status Tracker - Web App
-// Enhanced: summary card, 24h auto-cleanup, working idle view, and task durations
+// Lockout fix, color logic restructured, refresh adjusted to 30s
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
@@ -44,15 +44,49 @@ function getDuration(start, end) {
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
 }
 
+function getTotalTime(logs, tech) {
+  const entries = logs.filter(log => log.tech === tech && log.endTime);
+  const totalMs = entries.reduce((sum, log) => sum + (new Date(log.endTime) - new Date(log.startTime)), 0);
+  const mins = Math.floor(totalMs / 60000);
+  const hrs = Math.floor(mins / 60);
+  return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+}
+
 export default function Dashboard() {
   const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
   const [status, setStatus] = useState("");
   const [client, setClient] = useState("");
   const [logs, setLogs] = useState([]);
   const [filter, setFilter] = useState("active");
+  const [warning, setWarning] = useState(false);
+
+  const fetchLogs = async () => {
+    const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const expired = data.filter(log => log.endTime && log.endTime < cutoff);
+    if (expired.length) {
+      const ids = expired.map(x => x.id);
+      await supabase.from("status_logs").delete().in("id", ids);
+    }
+    setLogs(data.filter(log => !expired.some(e => e.id === log.id)));
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 30000); // refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const isManager = MANAGERS.includes(tech);
+  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
+  const userHasOpenTask = logs.some(log => log.tech === tech && !log.endTime);
 
   const handleStart = async () => {
-    if (!tech || !status) return;
+    if (!tech || !status || userHasOpenTask) {
+      setWarning(true);
+      return;
+    }
+    setWarning(false);
     const entry = {
       tech,
       status,
@@ -67,17 +101,6 @@ export default function Dashboard() {
   const handleDone = async (id) => {
     await supabase.from("status_logs").update({ endTime: new Date().toISOString() }).eq("id", id);
     fetchLogs();
-  };
-
-  const fetchLogs = async () => {
-    const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const expired = data.filter(log => log.endTime && log.endTime < cutoff);
-    if (expired.length) {
-      const ids = expired.map(x => x.id);
-      await supabase.from("status_logs").delete().in("id", ids);
-    }
-    setLogs(data.filter(log => !expired.some(e => e.id === log.id)));
   };
 
   const handleExport = () => {
@@ -102,15 +125,6 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const isManager = MANAGERS.includes(tech);
-  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
-
   const filteredLogs = logs.filter(log => {
     if (filter === "active") return log.endTime === null;
     if (filter === "completed") return log.endTime !== null;
@@ -126,50 +140,32 @@ export default function Dashboard() {
       {!tech ? (
         <div className="mb-6">
           <label className="block font-semibold mb-2">Select Your Name to Sign In:</label>
-          <select
-            className="border p-2 rounded"
-            onChange={(e) => {
-              setTech(e.target.value);
-              localStorage.setItem("selectedTech", e.target.value);
-            }}
-          >
+          <select className="border p-2 rounded" onChange={(e) => {
+            setTech(e.target.value);
+            localStorage.setItem("selectedTech", e.target.value);
+          }}>
             <option value="">Select Tech</option>
-            {TECHS.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
+            {TECHS.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <select
-              className="border p-2 rounded"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
+            <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">Select Status</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-
             {status === "Working ticket for:" && (
-              <select
-                className="border p-2 rounded"
-                value={client}
-                onChange={(e) => setClient(e.target.value)}
-              >
+              <select className="border p-2 rounded" value={client} onChange={(e) => setClient(e.target.value)}>
                 <option value="">Select Client</option>
-                {CLIENTS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                {CLIENTS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
             <button
-              className="bg-blue-600 text-white px-4 py-2 rounded"
+              className={`text-white px-4 py-2 rounded ${warning ? "bg-red-600" : "bg-blue-600"}`}
               onClick={handleStart}
             >
-              Start
+              {warning ? "You must end your active task first." : "Start"}
             </button>
           </div>
         </>
@@ -186,16 +182,16 @@ export default function Dashboard() {
         <div className="grid gap-2">
           {idleTechs.map((t) => (
             <div key={t} className="border p-3 rounded bg-yellow-50">
-              <p className="font-medium">{t} is currently idle.</p>
+              <p className="font-medium text-yellow-800">{t} is currently idle.</p>
             </div>
           ))}
         </div>
       ) : (
         <div className="grid gap-4">
           {filteredLogs.map((log) => (
-            <div key={log.id} className="border p-4 rounded shadow">
-              <p className="font-semibold">{log.tech}</p>
-              <p>Status: {log.status} {log.client && `(${log.client})`}</p>
+            <div key={log.id} className={`border p-4 rounded shadow ${log.endTime ? "bg-green-100" : "bg-blue-100"}`}>
+              <p className="font-bold">{log.tech}</p>
+              <p>Status: <span className="text-blue-900">{log.status}</span> {log.client && `(${log.client})`}</p>
               <p>Started: {formatESTTime(log.startTime)}</p>
               <p>Duration: {getDuration(log.startTime, log.endTime)}</p>
               {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
@@ -216,6 +212,14 @@ export default function Dashboard() {
         <div className="mt-10">
           <h2 className="text-xl font-bold mb-2">Manager View</h2>
           <p className="text-gray-600">You can mark any technician as done and download the full status report.</p>
+          <div className="mb-2">
+            <h3 className="font-semibold">Total Time by Technician:</h3>
+            <ul className="list-disc ml-6">
+              {TECHS.map((t) => (
+                <li key={t}>{t}: {getTotalTime(logs, t)}</li>
+              ))}
+            </ul>
+          </div>
           <button
             className="mt-4 bg-gray-800 text-white px-4 py-2 rounded"
             onClick={handleExport}
@@ -227,4 +231,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
