@@ -1,5 +1,5 @@
 // PopQuiz MSP Status Tracker - Web App
-// Now includes filters for active, idle, and completed tasks, with EST time formatting for CSV export
+// Enhanced: summary card, 24h auto-cleanup, working idle view, and task durations
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -37,6 +37,13 @@ function formatESTTime(isoTime) {
   });
 }
 
+function getDuration(start, end) {
+  const ms = new Date(end || new Date()) - new Date(start);
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+}
+
 export default function Dashboard() {
   const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
   const [status, setStatus] = useState("");
@@ -64,18 +71,25 @@ export default function Dashboard() {
 
   const fetchLogs = async () => {
     const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
-    setLogs(data);
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const expired = data.filter(log => log.endTime && log.endTime < cutoff);
+    if (expired.length) {
+      const ids = expired.map(x => x.id);
+      await supabase.from("status_logs").delete().in("id", ids);
+    }
+    setLogs(data.filter(log => !expired.some(e => e.id === log.id)));
   };
 
   const handleExport = () => {
     const csv = [
-      ["Tech", "Status", "Client", "Start Time (EST)", "End Time (EST)"],
+      ["Tech", "Status", "Client", "Start Time (EST)", "End Time (EST)", "Duration"],
       ...logs.map(log => [
         log.tech,
         log.status,
         log.client,
         formatESTTime(log.startTime),
-        log.endTime ? formatESTTime(log.endTime) : ""
+        log.endTime ? formatESTTime(log.endTime) : "",
+        getDuration(log.startTime, log.endTime)
       ])
     ].map(row => row.join(",")).join("\n");
 
@@ -95,13 +109,15 @@ export default function Dashboard() {
   }, []);
 
   const isManager = MANAGERS.includes(tech);
+  const activeTechs = logs.filter(log => !log.endTime).map(log => log.tech);
 
   const filteredLogs = logs.filter(log => {
     if (filter === "active") return log.endTime === null;
     if (filter === "completed") return log.endTime !== null;
-    if (filter === "idle") return !logs.some(l => l.tech === log.tech && l.endTime === null);
     return true;
   });
+
+  const idleTechs = TECHS.filter(t => !activeTechs.includes(t));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -166,24 +182,35 @@ export default function Dashboard() {
       </div>
 
       <h2 className="text-xl font-semibold mb-2">Current Activity</h2>
-      <div className="grid gap-4">
-        {filteredLogs.map((log) => (
-          <div key={log.id} className="border p-4 rounded shadow">
-            <p className="font-semibold">{log.tech}</p>
-            <p>Status: {log.status} {log.client && `(${log.client})`}</p>
-            <p>Started: {formatESTTime(log.startTime)}</p>
-            {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
-            {!log.endTime && (log.tech === tech || isManager) && (
-              <button
-                onClick={() => handleDone(log.id)}
-                className="mt-2 bg-green-600 text-white px-3 py-1 rounded"
-              >
-                Mark Done
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+      {filter === "idle" ? (
+        <div className="grid gap-2">
+          {idleTechs.map((t) => (
+            <div key={t} className="border p-3 rounded bg-yellow-50">
+              <p className="font-medium">{t} is currently idle.</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {filteredLogs.map((log) => (
+            <div key={log.id} className="border p-4 rounded shadow">
+              <p className="font-semibold">{log.tech}</p>
+              <p>Status: {log.status} {log.client && `(${log.client})`}</p>
+              <p>Started: {formatESTTime(log.startTime)}</p>
+              <p>Duration: {getDuration(log.startTime, log.endTime)}</p>
+              {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
+              {!log.endTime && (log.tech === tech || isManager) && (
+                <button
+                  onClick={() => handleDone(log.id)}
+                  className="mt-2 bg-green-600 text-white px-3 py-1 rounded"
+                >
+                  Mark Done
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {isManager && (
         <div className="mt-10">
