@@ -1,4 +1,4 @@
-// PopQuiz MSP Status Tracker - Full App (Enhanced + Delete for Admins)
+// PopQuiz MSP Status Tracker - Full App (Admin Persist + Live Task View Fix)
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -104,7 +104,7 @@ function getTechTotals(logs) {
 
 export default function App() {
   const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(localStorage.getItem("isAdmin") === "true");
   const [pin, setPin] = useState("");
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState("");
@@ -134,15 +134,18 @@ export default function App() {
     const hasOpen = logs.some(l => l.tech === selectedTech && !l.endTime);
     if (hasOpen && !confirmSecond) return setConfirmSecond(true);
 
-    await supabase.from("status_logs").insert([{
+    const newEntry = {
       tech: selectedTech,
       status,
       client: CLIENT_REQUIRED_STATUSES.includes(status) ? client : "",
       startTime: new Date().toISOString(),
       endTime: null
-    }]);
+    };
+    await supabase.from("status_logs").insert([newEntry]);
+
     setConfirmSecond(false);
-    fetchLogs();
+    setLogs(prev => [newEntry, ...prev]); // Optimistic update
+    setTimeout(fetchLogs, 500); // Re-sync shortly after
   };
 
   const handleDone = async (id) => {
@@ -183,10 +186,17 @@ export default function App() {
 
   const techTotals = getTechTotals(logs);
 
+  const handlePinEntry = (value) => {
+    setPin(value);
+    if (value === "1337") {
+      setIsAdmin(true);
+      localStorage.setItem("isAdmin", "true");
+    }
+  };
+
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
-
       {!tech ? (
         <div>
           <label>Select Tech:</label>
@@ -203,10 +213,7 @@ export default function App() {
               <input
                 type="password"
                 value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && pin === "1337") setIsAdmin(true);
-                }}
+                onChange={(e) => handlePinEntry(e.target.value)}
                 className="ml-2 border px-2"
               />
             </div>
@@ -232,22 +239,24 @@ export default function App() {
                   </select>
                 )}
                 <button onClick={handleStart} className="ml-2 bg-blue-600 text-white px-2 py-1 rounded">Start</button>
-                <button onClick={() => { localStorage.removeItem("selectedTech"); setTech(""); }} className="ml-2 text-sm">Logout</button>
+                <button onClick={() => {
+                  localStorage.removeItem("selectedTech");
+                  localStorage.removeItem("isAdmin");
+                  setTech("");
+                  setIsAdmin(false);
+                }} className="ml-2 text-sm">Logout</button>
               </div>
-
               {confirmSecond && (
                 <div className="bg-yellow-100 p-2 rounded mb-2">
                   You already have an active task. Start another?
                   <button onClick={handleStart} className="ml-2 bg-red-600 text-white px-2 py-1 rounded">Yes</button>
                 </div>
               )}
-
               <div className="mb-4">
                 <button onClick={() => setFilter("active")} className="mr-2">Active</button>
                 <button onClick={() => setFilter("idle")} className="mr-2">Idle</button>
                 <button onClick={() => setFilter("completed")} className="mr-2">Completed</button>
               </div>
-
               <div className="mb-6">
                 <h2 className="text-lg font-semibold">Current Activity</h2>
                 {filter === "idle" && idleTechs.map(t => <div key={t}>{t} is idle</div>)}
@@ -272,7 +281,6 @@ export default function App() {
                   </div>
                 ))}
               </div>
-
               <div className="mb-6">
                 <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
                 <ul>
@@ -281,7 +289,6 @@ export default function App() {
                   ))}
                 </ul>
               </div>
-
               <div className="mb-10">
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
