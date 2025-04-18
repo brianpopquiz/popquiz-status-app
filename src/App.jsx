@@ -1,10 +1,10 @@
-// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report
+// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report + Logout + Manager PIN
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
@@ -79,6 +79,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState("active");
   const [showConfirm, setShowConfirm] = useState(false);
   const [overrideTech, setOverrideTech] = useState("");
+  const [pinValidated, setPinValidated] = useState(false);
 
   const fetchLogs = async () => {
     const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
@@ -143,6 +144,24 @@ export default function Dashboard() {
   const idleTechs = TECHS.filter(t => !activeLogs.some(log => log.tech === t));
   const completedLogs = logs.filter(log => log.endTime);
 
+  const handleLogout = () => {
+    localStorage.removeItem("selectedTech");
+    setTech("");
+    setOverrideTech("");
+    setPinValidated(false);
+  };
+
+  const validatePin = () => {
+    const entered = prompt("Enter manager PIN:");
+    if (entered === "1337") {
+      setPinValidated(true);
+    } else {
+      alert("Invalid PIN.");
+    }
+  };
+
+  const managerLoggedIn = isManager && pinValidated;
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
@@ -153,6 +172,9 @@ export default function Dashboard() {
           <select className="border p-2 rounded" onChange={(e) => {
             setTech(e.target.value);
             localStorage.setItem("selectedTech", e.target.value);
+            if (MANAGERS.includes(e.target.value)) {
+              validatePin();
+            }
           }}>
             <option value="">Select Tech</option>
             {TECHS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -160,12 +182,18 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {isManager && (
-            <select className="mb-2 border p-2 rounded" value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
-              <option value="">Self</option>
-              {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
+          <div className="flex justify-between mb-4">
+            <div>
+              {managerLoggedIn && (
+                <select className="mb-2 border p-2 rounded" value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
+                  <option value="">Self</option>
+                  {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
+            </div>
+            <button onClick={handleLogout} className="bg-red-600 text-white px-3 py-1 rounded">Logout</button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">Select Status</option>
@@ -204,7 +232,7 @@ export default function Dashboard() {
             <p><strong>{log.tech}</strong></p>
             <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
             <p>Started: {formatESTTime(log.startTime)}</p>
-            {isManager && <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>}
+            {managerLoggedIn && <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>}
           </div>
         ))}
 
@@ -223,7 +251,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {isManager && (
+      {managerLoggedIn && (
         <div className="mt-8">
           <h2 className="text-lg font-bold mb-2">Weekly Client Report</h2>
           <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">
