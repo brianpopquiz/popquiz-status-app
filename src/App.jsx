@@ -21,6 +21,13 @@ const STATUSES = [
   "Onsite",
   "Out for the day",
 ];
+const CLIENT_REQUIRED_STATUSES = [
+  "Working ticket for:",
+  "Working on project",
+  "Client call",
+  "In meeting",
+  "Onsite"
+];
 const BREAK_STATUSES = ["On break", "Out for the day"];
 const CLIENTS = [
   "Novick", "Fabio", "Sullivans", "Pro Storm", "Metal and Wood", "DDS",
@@ -130,7 +137,7 @@ export default function App() {
     await supabase.from("status_logs").insert([{
       tech: selectedTech,
       status,
-      client: status === "Working ticket for:" ? client : "",
+      client: CLIENT_REQUIRED_STATUSES.includes(status) ? client : "",
       startTime: new Date().toISOString(),
       endTime: null
     }]);
@@ -173,6 +180,7 @@ export default function App() {
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
 
+      {/* Tech Selection */}
       {!tech ? (
         <div>
           <label>Select Tech:</label>
@@ -183,6 +191,7 @@ export default function App() {
         </div>
       ) : (
         <>
+          {/* Admin Pin Gate */}
           {MANAGERS.includes(tech) && !isAdmin ? (
             <div>
               <label>Enter Admin PIN:</label>
@@ -211,7 +220,7 @@ export default function App() {
                   <option value="">Select Status</option>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                {status === "Working ticket for:" && (
+                {CLIENT_REQUIRED_STATUSES.includes(status) && (
                   <select value={client} onChange={(e) => setClient(e.target.value)}>
                     <option value="">Select Client</option>
                     {CLIENTS.map(c => <option key={c} value={c}>{c}</option>)}
@@ -228,12 +237,14 @@ export default function App() {
                 </div>
               )}
 
+              {/* Filters */}
               <div className="mb-4">
                 <button onClick={() => setFilter("active")} className="mr-2">Active</button>
                 <button onClick={() => setFilter("idle")} className="mr-2">Idle</button>
                 <button onClick={() => setFilter("completed")} className="mr-2">Completed</button>
               </div>
 
+              {/* Activity */}
               <div className="mb-6">
                 <h2 className="text-lg font-semibold">Current Activity</h2>
                 {filter === "idle" && idleTechs.map(t => <div key={t}>{t} is idle</div>)}
@@ -251,6 +262,7 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Totals */}
               <div className="mb-6">
                 <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
                 <ul>
@@ -260,6 +272,7 @@ export default function App() {
                 </ul>
               </div>
 
+              {/* Export */}
               <div className="mb-10">
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
