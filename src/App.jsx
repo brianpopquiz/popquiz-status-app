@@ -1,4 +1,4 @@
-// PopQuiz MSP Status Tracker - Full App (Enhanced + Admin Edit Support)
+// PopQuiz MSP Status Tracker - Full App (Fixed Login Trigger)
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -167,8 +167,10 @@ export default function App() {
     if (tech === ADMIN_ACCOUNT && pin === "1337") {
       setIsAdmin(true);
       localStorage.setItem("admin", "true");
-    } else {
+      setTech(ADMIN_ACCOUNT); // 🔄 force update
+    } else if (tech && tech !== ADMIN_ACCOUNT) {
       localStorage.setItem("selectedTech", tech);
+      setTech(tech); // 🔄 force update
     }
   };
 
