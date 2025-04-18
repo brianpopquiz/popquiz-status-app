@@ -1,4 +1,4 @@
-// PopQuiz MSP Status Tracker - Core Enhancements + Per-Task Weekly Report + Logout + Manager PIN + Report Fixes + Dashboard Totals
+// PopQuiz MSP Status Tracker - Full App (Enhanced)
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -95,14 +95,22 @@ function getTechTotals(logs) {
   return summary;
 }
 
-export default function Dashboard() {
+export default function App() {
+  const [tech, setTech] = useState(localStorage.getItem("selectedTech") || "");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pin, setPin] = useState("");
   const [logs, setLogs] = useState([]);
-  const [techTotals, setTechTotals] = useState({});
+  const [status, setStatus] = useState("");
+  const [client, setClient] = useState("");
+  const [overrideTech, setOverrideTech] = useState("");
+  const [filter, setFilter] = useState("active");
+  const [confirmSecond, setConfirmSecond] = useState(false);
+
+  const selectedTech = isAdmin && overrideTech ? overrideTech : tech;
 
   const fetchLogs = async () => {
     const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
     setLogs(data);
-    setTechTotals(getTechTotals(data));
   };
 
   useEffect(() => {
@@ -111,24 +119,44 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  const activeLogs = logs.filter(log => !log.endTime);
+  const completedLogs = logs.filter(log => log.endTime);
+  const idleTechs = TECHS.filter(t => !activeLogs.find(log => log.tech === t));
+
+  const handleStart = async () => {
+    const hasOpen = logs.some(l => l.tech === selectedTech && !l.endTime);
+    if (hasOpen && !confirmSecond) return setConfirmSecond(true);
+
+    await supabase.from("status_logs").insert([{
+      tech: selectedTech,
+      status,
+      client: status === "Working ticket for:" ? client : "",
+      startTime: new Date().toISOString(),
+      endTime: null
+    }]);
+    setConfirmSecond(false);
+    fetchLogs();
+  };
+
+  const handleDone = async (id) => {
+    await supabase.from("status_logs").update({ endTime: new Date().toISOString() }).eq("id", id);
+    fetchLogs();
+  };
+
   const handleExportWeekly = () => {
     const summary = getWeeklyClientBreakdown(logs);
     const totals = getTechTotals(logs);
     const csv = [
       ["Tech", "Client", "Date", "Start", "End", "Duration"],
-      ...summary.map(entry => [entry.tech, entry.client, entry.date, entry.start, entry.end, entry.duration]),
+      ...summary.map(x => [x.tech, x.client, x.date, x.start, x.end, x.duration]),
       [""],
       ["Tech", "Total Time Today", "Total Time This Week"],
-      ...Object.entries(totals).map(([tech, t]) => {
-        const minsDay = Math.floor(t.day / 60000);
-        const hrsDay = Math.floor(minsDay / 60);
-        const dayTime = hrsDay > 0 ? `${hrsDay}h ${minsDay % 60}m` : `${minsDay}m`;
-        const minsWeek = Math.floor(t.week / 60000);
-        const hrsWeek = Math.floor(minsWeek / 60);
-        const weekTime = hrsWeek > 0 ? `${hrsWeek}h ${minsWeek % 60}m` : `${minsWeek}m`;
-        return [tech, dayTime, weekTime];
+      ...Object.entries(totals).map(([t, d]) => {
+        const day = getDuration(0, d.day);
+        const week = getDuration(0, d.week);
+        return [t, day, week];
       })
-    ].map(row => row.join(",")).join("\n");
+    ].map(r => r.join(",")).join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -139,30 +167,107 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h2 className="text-lg font-bold mb-2">Daily and Weekly Totals</h2>
-      <ul className="mb-6">
-        {Object.entries(techTotals).map(([tech, { day, week }]) => {
-          const minsDay = Math.floor(day / 60000);
-          const hrsDay = Math.floor(minsDay / 60);
-          const dayTime = hrsDay > 0 ? `${hrsDay}h ${minsDay % 60}m` : `${minsDay}m`;
-          const minsWeek = Math.floor(week / 60000);
-          const hrsWeek = Math.floor(minsWeek / 60);
-          const weekTime = hrsWeek > 0 ? `${hrsWeek}h ${minsWeek % 60}m` : `${minsWeek}m`;
-          return <li key={tech}><strong>{tech}</strong> – Today: {dayTime} | This Week: {weekTime}</li>;
-        })}
-      </ul>
+  const techTotals = getTechTotals(logs);
 
-      <div>
-        <h2 className="text-lg font-bold mb-2">Weekly Client Report</h2>
-        <button
-          onClick={handleExportWeekly}
-          className="bg-gray-800 text-white px-4 py-2 rounded"
-        >
-          Download Weekly Report
-        </button>
-      </div>
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
+
+      {!tech ? (
+        <div>
+          <label>Select Tech:</label>
+          <select onChange={(e) => setTech(e.target.value)} className="ml-2">
+            <option value="">-- Select --</option>
+            {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      ) : (
+        <>
+          {MANAGERS.includes(tech) && !isAdmin ? (
+            <div>
+              <label>Enter Admin PIN:</label>
+              <input
+                type="password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && pin === "1337") setIsAdmin(true);
+                }}
+                className="ml-2 border px-2"
+              />
+            </div>
+          ) : (
+            <>
+              {isAdmin && (
+                <div>
+                  <select value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
+                    <option value="">Self</option>
+                    {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="my-2">
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="mr-2">
+                  <option value="">Select Status</option>
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {status === "Working ticket for:" && (
+                  <select value={client} onChange={(e) => setClient(e.target.value)}>
+                    <option value="">Select Client</option>
+                    {CLIENTS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+                <button onClick={handleStart} className="ml-2 bg-blue-600 text-white px-2 py-1 rounded">Start</button>
+                <button onClick={() => { localStorage.removeItem("selectedTech"); setTech(""); }} className="ml-2 text-sm">Logout</button>
+              </div>
+
+              {confirmSecond && (
+                <div className="bg-yellow-100 p-2 rounded mb-2">
+                  You already have an active task. Start another?
+                  <button onClick={handleStart} className="ml-2 bg-red-600 text-white px-2 py-1 rounded">Yes</button>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <button onClick={() => setFilter("active")} className="mr-2">Active</button>
+                <button onClick={() => setFilter("idle")} className="mr-2">Idle</button>
+                <button onClick={() => setFilter("completed")} className="mr-2">Completed</button>
+              </div>
+
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold">Current Activity</h2>
+                {filter === "idle" && idleTechs.map(t => <div key={t}>{t} is idle</div>)}
+                {filter === "active" && activeLogs.map(log => (
+                  <div key={log.id} className="border p-2 my-2">
+                    <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
+                    Started: {formatESTTime(log.startTime)}<br />
+                    {isAdmin && <button onClick={() => handleDone(log.id)} className="mt-1 bg-green-600 text-white px-2 py-1 rounded">Mark Done</button>}
+                  </div>
+                ))}
+                {filter === "completed" && completedLogs.map(log => (
+                  <div key={log.id} className="text-sm text-gray-700">
+                    ✅ {log.tech} – {log.status} {log.client && `(${log.client})`} | {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
+                  </div>
+                ))}
+              </div>
+
+              <div className="mb-6">
+                <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
+                <ul>
+                  {Object.entries(techTotals).map(([tech, t]) => (
+                    <li key={tech}><strong>{tech}</strong> – Today: {getDuration(0, t.day)} | This Week: {getDuration(0, t.week)}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mb-10">
+                <h2 className="text-lg font-bold">Weekly Client Report</h2>
+                <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
