@@ -8,7 +8,7 @@ const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const TECHS = ["Alice", "Bob", "Charlie", "Dana", "Eli"];
+const TECHS = ["Brian", "Walter", "Rich", "Silouan", "Trevor", "Novick IT"];
 const STATUSES = [
   "Working ticket for:",
   "Working on project",
@@ -33,15 +33,30 @@ export default function App() {
   const [logs, setLogs] = useState([]);
 
   const handleStart = async () => {
-    if (!tech || !status) return;
+    if (!tech || !status) {
+      alert("Please select both tech and status.");
+      return;
+    }
+
     const entry = {
       tech,
       status,
       client: status === "Working ticket for:" ? client : "",
       startTime: new Date().toISOString(),
     };
-    await supabase.from("status_logs").insert([entry]);
-    fetchLogs();
+
+    try {
+      const { data, error } = await supabase.from("status_logs").insert([entry]);
+      if (error) {
+        console.error("Supabase insert error:", error.message);
+        alert("Error saving status: " + error.message);
+      } else {
+        console.log("Status logged:", data);
+        fetchLogs();
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    }
   };
 
   const fetchLogs = async () => {
@@ -117,4 +132,3 @@ export default function App() {
     </div>
   );
 }
-
