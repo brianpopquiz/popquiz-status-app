@@ -144,8 +144,8 @@ export default function App() {
     await supabase.from("status_logs").insert([newEntry]);
 
     setConfirmSecond(false);
-    setLogs(prev => [newEntry, ...prev]); // Optimistic update
-    setTimeout(fetchLogs, 500); // Re-sync shortly after
+    setLogs(prev => [newEntry, ...prev]);
+    setTimeout(fetchLogs, 500);
   };
 
   const handleDone = async (id) => {
@@ -264,10 +264,12 @@ export default function App() {
                   <div key={log.id} className="border p-2 my-2">
                     <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
                     Started: {formatESTTime(log.startTime)}<br />
-                    {isAdmin && (
+                    {(isAdmin || log.tech === tech) && (
                       <>
                         <button onClick={() => handleDone(log.id)} className="mt-1 bg-green-600 text-white px-2 py-1 rounded mr-2">Mark Done</button>
-                        <button onClick={() => handleDelete(log.id)} className="mt-1 bg-red-600 text-white px-2 py-1 rounded">Delete</button>
+                        {isAdmin && (
+                          <button onClick={() => handleDelete(log.id)} className="mt-1 bg-red-600 text-white px-2 py-1 rounded">Delete</button>
+                        )}
                       </>
                     )}
                   </div>
