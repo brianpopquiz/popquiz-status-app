@@ -1,4 +1,4 @@
-// PopQuiz MSP Status Tracker - Full App (Enhanced)
+// PopQuiz MSP Status Tracker - Full App (Enhanced + Delete for Admins)
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -150,6 +150,13 @@ export default function App() {
     fetchLogs();
   };
 
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to permanently delete this entry?")) {
+      await supabase.from("status_logs").delete().eq("id", id);
+      fetchLogs();
+    }
+  };
+
   const handleExportWeekly = () => {
     const summary = getWeeklyClientBreakdown(logs);
     const totals = getTechTotals(logs);
@@ -180,7 +187,6 @@ export default function App() {
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
 
-      {/* Tech Selection */}
       {!tech ? (
         <div>
           <label>Select Tech:</label>
@@ -191,7 +197,6 @@ export default function App() {
         </div>
       ) : (
         <>
-          {/* Admin Pin Gate */}
           {MANAGERS.includes(tech) && !isAdmin ? (
             <div>
               <label>Enter Admin PIN:</label>
@@ -237,14 +242,12 @@ export default function App() {
                 </div>
               )}
 
-              {/* Filters */}
               <div className="mb-4">
                 <button onClick={() => setFilter("active")} className="mr-2">Active</button>
                 <button onClick={() => setFilter("idle")} className="mr-2">Idle</button>
                 <button onClick={() => setFilter("completed")} className="mr-2">Completed</button>
               </div>
 
-              {/* Activity */}
               <div className="mb-6">
                 <h2 className="text-lg font-semibold">Current Activity</h2>
                 {filter === "idle" && idleTechs.map(t => <div key={t}>{t} is idle</div>)}
@@ -252,17 +255,24 @@ export default function App() {
                   <div key={log.id} className="border p-2 my-2">
                     <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
                     Started: {formatESTTime(log.startTime)}<br />
-                    {isAdmin && <button onClick={() => handleDone(log.id)} className="mt-1 bg-green-600 text-white px-2 py-1 rounded">Mark Done</button>}
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => handleDone(log.id)} className="mt-1 bg-green-600 text-white px-2 py-1 rounded mr-2">Mark Done</button>
+                        <button onClick={() => handleDelete(log.id)} className="mt-1 bg-red-600 text-white px-2 py-1 rounded">Delete</button>
+                      </>
+                    )}
                   </div>
                 ))}
                 {filter === "completed" && completedLogs.map(log => (
                   <div key={log.id} className="text-sm text-gray-700">
                     ✅ {log.tech} – {log.status} {log.client && `(${log.client})`} | {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
+                    {isAdmin && (
+                      <button onClick={() => handleDelete(log.id)} className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded text-xs">Delete</button>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {/* Totals */}
               <div className="mb-6">
                 <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
                 <ul>
@@ -272,7 +282,6 @@ export default function App() {
                 </ul>
               </div>
 
-              {/* Export */}
               <div className="mb-10">
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
