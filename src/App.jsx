@@ -1,5 +1,5 @@
 // PopQuiz MSP Status Tracker - Web App
-// Lockout fix, color logic restructured, refresh adjusted to 30s
+// Bug fixes: working Start button, exclude breaks from totals, new statuses added
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -13,6 +13,8 @@ const MANAGERS = ["Brian", "Walter", "Trevor", "Novick IT"];
 const STATUSES = [
   "Working ticket for:",
   "Working on project",
+  "Client call",
+  "Business Improvement",
   "On break",
   "In meeting",
   "Studying",
@@ -20,6 +22,7 @@ const STATUSES = [
   "Onsite",
   "Out for the day",
 ];
+const BREAK_STATUSES = ["On break"];
 const CLIENTS = [
   "Novick", "Fabio", "Sullivans", "Pro Storm", "Metal and Wood", "DDS",
   "Foglia", "Northeast Fence", "Steel Penny", "Super Impulse", "Pennypack",
@@ -45,7 +48,7 @@ function getDuration(start, end) {
 }
 
 function getTotalTime(logs, tech) {
-  const entries = logs.filter(log => log.tech === tech && log.endTime);
+  const entries = logs.filter(log => log.tech === tech && log.endTime && !BREAK_STATUSES.includes(log.status));
   const totalMs = entries.reduce((sum, log) => sum + (new Date(log.endTime) - new Date(log.startTime)), 0);
   const mins = Math.floor(totalMs / 60000);
   const hrs = Math.floor(mins / 60);
@@ -61,7 +64,8 @@ export default function Dashboard() {
   const [warning, setWarning] = useState(false);
 
   const fetchLogs = async () => {
-    const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
+    const { data, error } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
+    if (error) console.error("Fetch error:", error);
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const expired = data.filter(log => log.endTime && log.endTime < cutoff);
     if (expired.length) {
@@ -73,7 +77,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchLogs();
-    const interval = setInterval(fetchLogs, 30000); // refresh every 30 seconds
+    const interval = setInterval(fetchLogs, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -94,7 +98,8 @@ export default function Dashboard() {
       startTime: new Date().toISOString(),
       endTime: null,
     };
-    await supabase.from("status_logs").insert([entry]);
+    const { error } = await supabase.from("status_logs").insert([entry]);
+    if (error) console.error("Insert error:", error);
     fetchLogs();
   };
 
@@ -196,10 +201,7 @@ export default function Dashboard() {
               <p>Duration: {getDuration(log.startTime, log.endTime)}</p>
               {log.endTime && <p className="text-green-700">Done: {formatESTTime(log.endTime)}</p>}
               {!log.endTime && (log.tech === tech || isManager) && (
-                <button
-                  onClick={() => handleDone(log.id)}
-                  className="mt-2 bg-green-600 text-white px-3 py-1 rounded"
-                >
+                <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-600 text-white px-3 py-1 rounded">
                   Mark Done
                 </button>
               )}
@@ -220,10 +222,7 @@ export default function Dashboard() {
               ))}
             </ul>
           </div>
-          <button
-            className="mt-4 bg-gray-800 text-white px-4 py-2 rounded"
-            onClick={handleExport}
-          >
+          <button className="mt-4 bg-gray-800 text-white px-4 py-2 rounded" onClick={handleExport}>
             Download CSV Report
           </button>
         </div>
