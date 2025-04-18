@@ -139,6 +139,8 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const activeLogs = logs.filter(log => !log.endTime);
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">PopQuiz MSP Status Tracker</h1>
@@ -184,6 +186,22 @@ export default function Dashboard() {
         <div className="bg-yellow-100 p-4 mb-4 rounded">
           <p>You already have an active task. Are you sure you want to start another?</p>
           <button onClick={() => handleStart()} className="mt-2 bg-red-600 text-white px-3 py-1 rounded">Yes, Start Anyway</button>
+        </div>
+      )}
+
+      {activeLogs.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold mb-2">Current Activity</h2>
+          {activeLogs.map((log) => (
+            <div key={log.id} className="mb-4 border p-3 rounded bg-gray-100">
+              <p><strong>{log.tech}</strong></p>
+              <p>Status: {log.status}{log.client && ` (${log.client})`}</p>
+              <p>Started: {formatESTTime(log.startTime)}</p>
+              {isManager && (
+                <button onClick={() => handleDone(log.id)} className="mt-2 bg-green-700 text-white px-2 py-1 rounded">Mark Done</button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
