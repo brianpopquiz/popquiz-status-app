@@ -140,9 +140,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div>
-      <h2>Daily and Weekly Totals</h2>
-      <ul>
+    <div className="p-6 max-w-4xl mx-auto">
+      <h2 className="text-lg font-bold mb-2">Daily and Weekly Totals</h2>
+      <ul className="mb-6">
         {Object.entries(techTotals).map(([tech, { day, week }]) => {
           const minsDay = Math.floor(day / 60000);
           const hrsDay = Math.floor(minsDay / 60);
@@ -153,6 +153,16 @@ export default function Dashboard() {
           return <li key={tech}><strong>{tech}</strong> – Today: {dayTime} | This Week: {weekTime}</li>;
         })}
       </ul>
+
+      <div>
+        <h2 className="text-lg font-bold mb-2">Weekly Client Report</h2>
+        <button
+          onClick={handleExportWeekly}
+          className="bg-gray-800 text-white px-4 py-2 rounded"
+        >
+          Download Weekly Report
+        </button>
+      </div>
     </div>
   );
 }
