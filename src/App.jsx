@@ -64,21 +64,19 @@ function getWeeklyClientBreakdown(logs) {
 
   const summary = [];
 
-  logs.forEach(log => {
+ logs.forEach(log => {
     if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
     const logDate = new Date(log.startTime);
     if (logDate < weekStart) return;
     const timeSpent = getDuration(log.startTime, log.endTime);
     summary.push({
-  tech,
-  status: log.status,
-  client,
-  date: dateKey,
-  start: formatESTTime(log.startTime),
-  end: formatESTTime(log.endTime),
-  duration: getDuration(log.startTime, log.endTime),
-});
-
+      tech: log.tech,
+      client: log.client || "N/A",
+      date: logDate.toLocaleDateString("en-US"),
+      start: formatESTTime(log.startTime),
+      end: formatESTTime(log.endTime),
+      duration: timeSpent,
+    });
   });
 
   return summary;
