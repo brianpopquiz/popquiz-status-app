@@ -164,8 +164,8 @@ export default function App() {
     const summary = getWeeklyClientBreakdown(logs);
     const totals = getTechTotals(logs);
     const csv = [
-      ["Tech", "Client", "Date", "Start", "End", "Duration"],
-      ...summary.map(x => [x.tech, x.client, x.date, x.start, x.end, x.duration]),
+      ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
+      ...summary.map(x => [x.tech, x.status, x.client, x.date, x.start, x.end, x.duration]),
       [""],
       ["Tech", "Total Time Today", "Total Time This Week"],
       ...Object.entries(totals).map(([t, d]) => {
