@@ -184,20 +184,36 @@ export default function App() {
     }
   };
 
- const handleExportWeekly = () => {
+const handleExportWeekly = () => {
   const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
   const totals = getTechTotals(logs);
 
   const csv = [
+    // Section 1: Activity Logs
     ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
     ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
+
     [""],
     ["Tech", "Total Time Today", "Total Time This Week"],
     ...Object.entries(totals).map(([t, d]) => {
       const day = getDuration(0, d.day);
       const week = getDuration(0, d.week);
       return [t, day, week];
-    })
+    }),
+
+    [""],
+    ["Client", "Total Time Today", "Total Time This Week"],
+    ...Object.entries(clientWeekTotals).map(([client]) => {
+      const week = getDuration(0, clientWeekTotals[client]);
+      const day = getDuration(0, clientDayTotals[client] || 0);
+      return [client, day, week];
+    }),
+
+    [""],
+    ["Tech", "Client", "Time Today"],
+    ...Object.entries(techClientDay).flatMap(([tech, clients]) =>
+      Object.entries(clients).map(([client, ms]) => [tech, client, getDuration(0, ms)])
+    )
   ].map(r => r.join(",")).join("\n");
 
   const blob = new Blob([csv], { type: "text/csv" });
