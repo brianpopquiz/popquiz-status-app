@@ -70,13 +70,15 @@ function getWeeklyClientBreakdown(logs) {
     if (logDate < weekStart) return;
     const timeSpent = getDuration(log.startTime, log.endTime);
     summary.push({
-      tech: log.tech,
-      client: log.client || "N/A",
-      date: logDate.toLocaleDateString("en-US"),
-      start: formatESTTime(log.startTime),
-      end: formatESTTime(log.endTime),
-      duration: timeSpent,
-    });
+  tech,
+  task: log.status, // ✅ rename key from `status` to `task`
+  client,
+  date: dateKey,
+  start: formatESTTime(log.startTime),
+  end: formatESTTime(log.endTime),
+  duration: getDuration(log.startTime, log.endTime),
+});
+
   });
 
   return summary;
@@ -165,7 +167,7 @@ export default function App() {
     const totals = getTechTotals(logs);
     const csv = [
       ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
-      ...summary.map(x => [x.tech, x.status, x.client, x.date, x.start, x.end, x.duration]),
+      ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
       [""],
       ["Tech", "Total Time Today", "Total Time This Week"],
       ...Object.entries(totals).map(([t, d]) => {
