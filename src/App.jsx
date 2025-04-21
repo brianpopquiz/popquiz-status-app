@@ -61,53 +61,25 @@ function getWeeklyClientBreakdown(logs) {
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay());
-  weekStart.setHours(0, 0, 0, 0);
 
   const summary = [];
-  const clientDayTotals = {};
-  const clientWeekTotals = {};
-  const techClientDay = {};
 
-  logs.forEach(log => {
+ logs.forEach(log => {
     if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
-
-    const start = new Date(log.startTime);
-    const end = new Date(log.endTime);
-    const ms = end - start;
-    const client = log.client || "N/A";
-    const tech = log.tech;
-    const status = log.status;
-    const dateKey = start.toLocaleDateString("en-US");
-
-    // Weekly client totals
-    if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
-    clientWeekTotals[client] += ms;
-
-    // Daily client totals
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    if (start >= todayStart) {
-      if (!clientDayTotals[client]) clientDayTotals[client] = 0;
-      clientDayTotals[client] += ms;
-
-      if (!techClientDay[tech]) techClientDay[tech] = {};
-      if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
-      techClientDay[tech][client] += ms;
-    }
-
-    // Push log to summary for CSV/report
+    const logDate = new Date(log.startTime);
+    if (logDate < weekStart) return;
+    const timeSpent = getDuration(log.startTime, log.endTime);
     summary.push({
-      tech,
-      status, // <- This is the fix for your export
-      client,
-      date: dateKey,
+      tech: log.tech,
+      client: log.client || "N/A",
+      date: logDate.toLocaleDateString("en-US"),
       start: formatESTTime(log.startTime),
       end: formatESTTime(log.endTime),
-      duration: getDuration(log.startTime, log.endTime),
+      duration: timeSpent,
     });
   });
 
-  return { summary, clientDayTotals, clientWeekTotals, techClientDay };
+  return summary;
 }
 
 function getTechTotals(logs) {
