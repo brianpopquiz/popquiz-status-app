@@ -76,12 +76,13 @@ function getWeeklyClientBreakdown(logs) {
     const ms = end - start;
     const client = log.client || "N/A";
     const tech = log.tech;
+    const task = log.status;
     const dateKey = start.toLocaleDateString("en-US");
 
     if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
     clientWeekTotals[client] += ms;
 
-    if (start >= new Date(new Date().setHours(0,0,0,0))) {
+    if (start >= new Date(new Date().setHours(0, 0, 0, 0))) {
       if (!clientDayTotals[client]) clientDayTotals[client] = 0;
       clientDayTotals[client] += ms;
 
@@ -92,7 +93,7 @@ function getWeeklyClientBreakdown(logs) {
 
     summary.push({
       tech,
-      task: log.status, // 👈 This is the fix
+      task,  // ✅ Include task field
       client,
       date: dateKey,
       start: formatESTTime(log.startTime),
@@ -183,29 +184,31 @@ export default function App() {
     }
   };
 
-  const handleExportWeekly = () => {
-    const summary = getWeeklyClientBreakdown(logs);
-    const totals = getTechTotals(logs);
-    const csv = [
-  ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
-  ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
-      [""],
-      ["Tech", "Total Time Today", "Total Time This Week"],
-      ...Object.entries(totals).map(([t, d]) => {
-        const day = getDuration(0, d.day);
-        const week = getDuration(0, d.week);
-        return [t, day, week];
-      })
-    ].map(r => r.join(",")).join("\n");
+ const handleExportWeekly = () => {
+  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
+  const totals = getTechTotals(logs);
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "weekly_client_report.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const csv = [
+    ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
+    ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
+    [""],
+    ["Tech", "Total Time Today", "Total Time This Week"],
+    ...Object.entries(totals).map(([t, d]) => {
+      const day = getDuration(0, d.day);
+      const week = getDuration(0, d.week);
+      return [t, day, week];
+    })
+  ].map(r => r.join(",")).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "weekly_client_report.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 
   const techTotals = getTechTotals(logs);
 
