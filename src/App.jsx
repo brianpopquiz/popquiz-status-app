@@ -60,29 +60,50 @@ function getDuration(start, end) {
 function getWeeklyClientBreakdown(logs) {
   const now = new Date();
   const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setDate(now.getDate() - weekStart.getDay());
+  weekStart.setHours(0, 0, 0, 0);
 
   const summary = [];
+  const clientDayTotals = {};
+  const clientWeekTotals = {};
+  const techClientDay = {};
 
- logs.forEach(log => {
+  logs.forEach(log => {
     if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
-    const logDate = new Date(log.startTime);
-    if (logDate < weekStart) return;
-    const timeSpent = getDuration(log.startTime, log.endTime);
-    summary.push({
-  tech,
-  task: log.status, // ✅ rename key from `status` to `task`
-  client,
-  date: dateKey,
-  start: formatESTTime(log.startTime),
-  end: formatESTTime(log.endTime),
-  duration: getDuration(log.startTime, log.endTime),
-});
 
+    const start = new Date(log.startTime);
+    const end = new Date(log.endTime);
+    const ms = end - start;
+    const client = log.client || "N/A";
+    const tech = log.tech;
+    const dateKey = start.toLocaleDateString("en-US");
+
+    if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
+    clientWeekTotals[client] += ms;
+
+    if (start >= new Date(new Date().setHours(0,0,0,0))) {
+      if (!clientDayTotals[client]) clientDayTotals[client] = 0;
+      clientDayTotals[client] += ms;
+
+      if (!techClientDay[tech]) techClientDay[tech] = {};
+      if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
+      techClientDay[tech][client] += ms;
+    }
+
+    summary.push({
+      tech,
+      task: log.status, // 👈 This is the fix
+      client,
+      date: dateKey,
+      start: formatESTTime(log.startTime),
+      end: formatESTTime(log.endTime),
+      duration: getDuration(log.startTime, log.endTime),
+    });
   });
 
-  return summary;
+  return { summary, clientDayTotals, clientWeekTotals, techClientDay };
 }
+
 
 function getTechTotals(logs) {
   const dayStart = new Date();
@@ -166,8 +187,8 @@ export default function App() {
     const summary = getWeeklyClientBreakdown(logs);
     const totals = getTechTotals(logs);
     const csv = [
-      ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
-      ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
+  ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
+  ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
       [""],
       ["Tech", "Total Time Today", "Total Time This Week"],
       ...Object.entries(totals).map(([t, d]) => {
