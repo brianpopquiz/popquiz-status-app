@@ -59,9 +59,11 @@ function getDuration(start, end) {
 
 function getWeeklyClientBreakdown(logs) {
   const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - weekStart.getDay());
-  weekStart.setHours(0, 0, 0, 0);
+
+const weekStart = new Date();
+weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Move to Sunday
+weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
+
 
   const summary = [];
   const clientDayTotals = {};
