@@ -223,58 +223,56 @@ const handleExportWeekly = () => {
   const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
   const totals = getTechTotals(logs);
 
-  const csv = [
-    // Section 1: Activity Logs
-    ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
-    ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
+ const csv = [
+  // Section 1: Activity Logs
+  ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
+  ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
 
-    [""],
-    ["Tech", "Total Time Today", "Total Time This Week"],
-    ...TECHS.map(t => {
-  const d = totals[t] || { day: 0, week: 0 };
-  const day = getDuration(0, d.day);
-  const week = getDuration(0, d.week);
-  return [t, day, week];
-}),
+  [""],
+  ["Tech", "Total Time Today", "Total Time This Week"],
+  ...TECHS.map(t => {
+    const d = totals[t] || { day: 0, week: 0 };
+    const day = getDuration(0, d.day);
+    const week = getDuration(0, d.week);
+    return [t, day, week];
+  }),
 
+  [""],
+  ["Client", "Total Time Today", "Total Time This Week"],
+  ...Object.keys(clientDayTotals).map(client => {
+    const day = getDuration(0, clientDayTotals[client]);
+    const week = getDuration(0, clientWeekTotals[client] || 0);
+    return [client, day, week];
+  }),
 
-    [""],
-    ["Client", "Total Time Today", "Total Time This Week"],
-   ...Object.keys(clientDayTotals).map(client => {
-  const day = getDuration(0, clientDayTotals[client]);
-  const week = getDuration(0, clientWeekTotals[client] || 0);
-  return [client, day, week];
-}),
+  [""],
+  ["Tech", "Client", "Time Today", "Time This Week"],
+  ...Object.entries(techClientDay).flatMap(([tech, clients]) =>
+    Object.entries(clients).map(([client, dayMs]) => {
+      const weekMs = logs
+        .filter(l => l.tech === tech && l.client === client && l.endTime)
+        .reduce((acc, l) => {
+          const start = new Date(l.startTime);
+          const end = new Date(l.endTime);
+          if (!isNaN(start) && !isNaN(end) && start >= weekStart) {
+            const delta = end - start;
+            return acc + (delta > 0 ? delta : 0);
+          }
+          return acc;
+        }, 0);
+      return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
+    })
+  )
+].map(r => r.join(",")).join("\n");
 
+const blob = new Blob([csv], { type: "text/csv" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = "weekly_client_report.csv";
+a.click();
+URL.revokeObjectURL(url);
 
-    [""],
-    ["Tech", "Client", "Time Today", "Time This Week"],
-...Object.entries(techClientDay).flatMap(([tech, clients]) =>
-  Object.entries(clients).map(([client, ms]) => {
-    const weekMs = logs
-      .filter(l => l.tech === tech && l.client === client && l.endTime)
-      .reduce((acc, l) => {
-        const start = new Date(l.startTime);
-        const end = new Date(l.endTime);
-        if (!isNaN(start) && !isNaN(end) && start >= weekStart) {
-          const delta = end - start;
-          return acc + (delta > 0 ? delta : 0);
-        }
-        return acc;
-      }, 0);
-    return [tech, client, getDuration(0, ms), getDuration(0, weekMs)];
-  })
-)
-
-  ].map(r => r.join(",")).join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "weekly_client_report.csv";
-  a.click();
-  URL.revokeObjectURL(url);
 };
 
 
