@@ -108,9 +108,10 @@ todayStart.setHours(0, 0, 0, 0); // Set to start of today
 }
 
 
-    if (start >= weekStart) {
-      if (!clientDayTotals[client]) clientDayTotals[client] = 0;
-      clientDayTotals[client] += ms;
+      if (start >= weekStart) {
+      if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
+      clientWeekTotals[client] += ms;
+
 
       if (!techClientDay[tech]) techClientDay[tech] = {};
       if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
