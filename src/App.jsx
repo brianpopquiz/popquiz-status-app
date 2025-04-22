@@ -268,29 +268,27 @@ weekStart.setHours(0, 0, 0, 0);
 
   [""],
   ["Tech", "Client", "Time Today", "Time This Week"],
-  ...TECHS.flatMap(tech => {
-    return CLIENTS.map(client => {
-      const dayMs = techClientDay?.[tech]?.[client] || 0;
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      weekStart.setHours(0, 0, 0, 0);
+...Object.entries(techClientDay).flatMap(([tech, clients]) => {
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  weekStart.setHours(0, 0, 0, 0);
 
-      const weekMs = logs
-        .filter(l => l.tech === tech && l.client === client && l.endTime)
-        .reduce((acc, l) => {
-          const start = new Date(l.startTime);
-          const end = new Date(l.endTime);
-          if (!isNaN(start) && !isNaN(end) && start >= weekStart) {
-            const delta = end - start;
-            return acc + (delta > 0 ? delta : 0);
-          }
-          return acc;
-        }, 0);
+  return Object.entries(clients).map(([client, dayMs]) => {
+    const weekMs = logs
+      .filter(l => l.tech === tech && l.client === client && l.endTime)
+      .reduce((acc, l) => {
+        const start = new Date(l.startTime);
+        const end = new Date(l.endTime);
+        if (!isNaN(start) && !isNaN(end) && start >= weekStart) {
+          const delta = end - start;
+          return acc + (delta > 0 ? delta : 0);
+        }
+        return acc;
+      }, 0);
 
-      return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
-    });
-  }),
-
+    return [tech, client, getDuration(0, weekMs), getDuration(0, dayMs)];
+  });
+}),
 
 ].map(r => r.join(",")).join("\n");
 
