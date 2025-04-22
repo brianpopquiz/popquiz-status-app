@@ -51,11 +51,21 @@ function getDurationMs(start, end) {
 }
 
 function getDuration(start, end) {
-  const ms = getDurationMs(start, end);
+  const startDate = new Date(start || 0);
+  const endDate = new Date(end || 0);
+
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return "0m";
+  }
+
+  const ms = endDate - startDate;
+  if (ms <= 0) return "0m";
+
   const mins = Math.floor(ms / 60000);
   const hrs = Math.floor(mins / 60);
   return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
 }
+
 
 function getWeeklyClientBreakdown(logs) {
   const now = new Date();
