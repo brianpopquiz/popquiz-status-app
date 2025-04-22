@@ -79,6 +79,8 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
   const clientDayTotals = {};
   const clientWeekTotals = {};
   const techClientDay = {};
+  const techClientWeek = {};
+
 
   logs.forEach(log => {
     if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
@@ -105,6 +107,11 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
       if (!techClientDay[tech]) techClientDay[tech] = {};
       if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
       techClientDay[tech][client] += ms;
+
+      if (!techClientWeek[tech]) techClientWeek[tech] = {};
+      if (!techClientWeek[tech][client]) techClientWeek[tech][client] = 0;
+      techClientWeek[tech][client] += ms;
+
     }
 
    if (start >= weekStart) {
@@ -121,7 +128,8 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
 
   });
 
-  return { summary, clientDayTotals, clientWeekTotals, techClientDay };
+  return { summary, clientDayTotals, clientWeekTotals, techClientDay, techClientWeek };
+
 }
 
 
