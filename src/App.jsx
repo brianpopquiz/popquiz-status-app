@@ -61,7 +61,7 @@ function getWeeklyClientBreakdown(logs) {
   const now = new Date();
 
 const weekStart = new Date();
-weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Move to Sunday
+weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
 weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
 
 
@@ -84,7 +84,7 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
     if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
     clientWeekTotals[client] += ms;
 
-    if (start >= new Date(new Date().setHours(0, 0, 0, 0))) {
+    if (start >= weekStart) {
       if (!clientDayTotals[client]) clientDayTotals[client] = 0;
       clientDayTotals[client] += ms;
 
