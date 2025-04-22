@@ -213,11 +213,13 @@ const handleExportWeekly = () => {
 
     [""],
     ["Tech", "Total Time Today", "Total Time This Week"],
-    ...Object.entries(totals).map(([t, d]) => {
-      const day = getDuration(0, d.day);
-      const week = getDuration(0, d.week);
-      return [t, day, week];
-    }),
+    ...TECHS.map(t => {
+  const d = totals[t] || { day: 0, week: 0 };
+  const day = getDuration(0, d.day);
+  const week = getDuration(0, d.week);
+  return [t, day, week];
+}),
+
 
     [""],
     ["Client", "Total Time Today", "Total Time This Week"],
