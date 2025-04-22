@@ -123,14 +123,23 @@ function getTechTotals(logs) {
   const summary = {};
 
   logs.forEach(log => {
-    if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
-    const start = new Date(log.startTime);
-    const end = new Date(log.endTime);
-    const ms = end - start;
-    if (!summary[log.tech]) summary[log.tech] = { day: 0, week: 0 };
-    if (start >= dayStart) summary[log.tech].day += ms;
-    if (start >= weekStart) summary[log.tech].week += ms;
-  });
+  if (!log.startTime || !log.endTime) return;
+  if (BREAK_STATUSES.includes(log.status)) return;
+
+  const start = new Date(log.startTime);
+  const end = new Date(log.endTime);
+
+  // Ensure both timestamps are valid
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+  const ms = end - start;
+  if (ms <= 0) return; // Prevent negative durations or zeroes
+
+  if (!summary[log.tech]) summary[log.tech] = { day: 0, week: 0 };
+  if (start >= dayStart) summary[log.tech].day += ms;
+  if (start >= weekStart) summary[log.tech].week += ms;
+});
+
 
   return summary;
 }
