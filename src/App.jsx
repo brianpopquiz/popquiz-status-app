@@ -221,6 +221,10 @@ export default function App() {
 
 const handleExportWeekly = () => {
   const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
+  const weekStart = new Date();
+weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+weekStart.setHours(0, 0, 0, 0);
+
   const totals = getTechTotals(logs);
 
  const csv = [
