@@ -73,6 +73,8 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
   logs.forEach(log => {
     if (!log.endTime || BREAK_STATUSES.includes(log.status)) return;
 
+    if (!log.endTime) return; // 🔒 Skip entries with no end time
+
     const start = new Date(log.startTime);
     const end = new Date(log.endTime);
     const ms = end - start;
