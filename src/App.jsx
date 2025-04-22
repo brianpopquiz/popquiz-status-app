@@ -81,8 +81,10 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
     const task = log.status;
     const dateKey = start.toLocaleDateString("en-US");
 
-    if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
-    clientWeekTotals[client] += ms;
+    if (start >= weekStart) {
+  if (!clientWeekTotals[client]) clientWeekTotals[client] = 0;
+  clientWeekTotals[client] += ms;
+}
 
     if (start >= weekStart) {
       if (!clientDayTotals[client]) clientDayTotals[client] = 0;
