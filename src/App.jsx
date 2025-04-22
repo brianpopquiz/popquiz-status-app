@@ -93,15 +93,18 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
       techClientDay[tech][client] += ms;
     }
 
-    summary.push({
-      tech,
-      task,  // ✅ Include task field
-      client,
-      date: dateKey,
-      start: formatESTTime(log.startTime),
-      end: formatESTTime(log.endTime),
-      duration: getDuration(log.startTime, log.endTime),
-    });
+   if (start >= weekStart) {
+  summary.push({
+    tech,
+    client,
+    status: log.status,
+    date: dateKey,
+    start: formatESTTime(log.startTime),
+    end: formatESTTime(log.endTime),
+    duration: getDuration(log.startTime, log.endTime),
+  });
+}
+
   });
 
   return { summary, clientDayTotals, clientWeekTotals, techClientDay };
