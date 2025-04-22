@@ -116,30 +116,37 @@ weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
 
 
 function getTechTotals(logs) {
-  const dayStart = new Date();
+  const now = new Date();
+  const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
+
   const summary = {};
 
+  TECHS.forEach(tech => {
+    summary[tech] = { day: 0, week: 0 };
+  });
+
   logs.forEach(log => {
-  if (!log.startTime || !log.endTime) return;
-  if (BREAK_STATUSES.includes(log.status)) return;
+    if (!log.startTime || !log.endTime) return;
+    if (BREAK_STATUSES.includes(log.status)) return;
 
-  const start = new Date(log.startTime);
-  const end = new Date(log.endTime);
+    const start = new Date(log.startTime);
+    const end = new Date(log.endTime);
+    if (isNaN(start) || isNaN(end)) return;
 
-  // Ensure both timestamps are valid
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+    const ms = end - start;
+    if (ms <= 0) return;
 
-  const ms = end - start;
-  if (ms <= 0) return; // Prevent negative durations or zeroes
+    const tech = log.tech;
+    if (!summary[tech]) summary[tech] = { day: 0, week: 0 };
 
-  if (!summary[log.tech]) summary[log.tech] = { day: 0, week: 0 };
-  if (start >= dayStart) summary[log.tech].day += ms;
-  if (start >= weekStart) summary[log.tech].week += ms;
-});
-
+    if (start >= dayStart) summary[tech].day += ms;
+    if (start >= weekStart) summary[tech].week += ms;
+  });
 
   return summary;
 }
