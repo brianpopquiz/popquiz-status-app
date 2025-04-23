@@ -270,11 +270,15 @@ weekStart.setHours(0, 0, 0, 0);
 
   [""],
   ["Client", "Total Time Today", "Total Time This Week"],
-  ...Object.keys(clientDayTotals).map(client => {
-    const day = getDuration(0, clientDayTotals[client]);
-    const week = getDuration(0, clientWeekTotals[client] || 0);
-    return [client, day, week];
-  }),
+...Array.from(new Set([
+  ...Object.keys(clientDayTotals),
+  ...Object.keys(clientWeekTotals)
+])).map(client => {
+  const day = getDuration(0, clientDayTotals[client] || 0);
+  const week = getDuration(0, clientWeekTotals[client] || 0);
+  return [client, day, week];
+}),
+
 
   [""],
   ["Tech", "Client", "Time Today", "Time This Week"],
