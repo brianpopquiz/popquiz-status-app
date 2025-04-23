@@ -300,7 +300,7 @@ weekStart.setHours(0, 0, 0, 0);
         return acc;
       }, 0);
 
-    return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
+    return [tech, client, getDuration(0, weekMs), getDuration(0, dayMs)];
   });
 }),
 
