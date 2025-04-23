@@ -188,7 +188,7 @@ export default function App() {
   const [overrideTech, setOverrideTech] = useState("");
   const [filter, setFilter] = useState("active");
   const [confirmSecond, setConfirmSecond] = useState(false);
-
+  const [editingLog, setEditingLog] = useState(null);
   const selectedTech = isAdmin && overrideTech ? overrideTech : tech;
 
   const fetchLogs = async () => {
@@ -243,7 +243,17 @@ weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 weekStart.setHours(0, 0, 0, 0);
 
   const totals = getTechTotals(logs);
+const saveEdit = async () => {
+  if (!editingLog || !editingLog.id) return;
 
+  await supabase
+    .from("status_logs")
+    .update({ endTime: editingLog.endTime })
+    .eq("id", editingLog.id);
+
+  setEditingLog(null);
+  fetchLogs(); // refresh logs
+};
  const csv = [
   // Section 1: Activity Logs
   ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
@@ -394,13 +404,54 @@ URL.revokeObjectURL(url);
                   </div>
                 ))}
                 {filter === "completed" && completedLogs.map(log => (
-                  <div key={log.id} className="text-sm text-gray-700">
-                    ✅ {log.tech} – {log.status} {log.client && `(${log.client})`} | {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
-                    {isAdmin && (
-                      <button onClick={() => handleDelete(log.id)} className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded text-xs">Delete</button>
-                    )}
-                  </div>
-                ))}
+  <div key={log.id} className="text-sm text-gray-700 mb-2">
+    ✅ <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
+    {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
+    {isAdmin && (
+      <>
+        <button
+          onClick={() => setEditingLog(log)}
+          className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => handleDelete(log.id)}
+          className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-xs"
+        >
+          Delete
+        </button>
+      </>
+    )}
+
+    {editingLog?.id === log.id && (
+      <div className="mt-2">
+        <label className="block text-sm font-medium">New End Time:</label>
+        <input
+          type="datetime-local"
+          value={new Date(editingLog.endTime).toISOString().slice(0, 16)}
+          onChange={(e) =>
+            setEditingLog({ ...editingLog, endTime: new Date(e.target.value).toISOString() })
+          }
+          className="border rounded px-2 py-1 mr-2"
+        />
+        <button
+          onClick={saveEdit}
+          className="bg-green-600 text-white px-3 py-1 rounded text-xs"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => setEditingLog(null)}
+          className="ml-2 bg-gray-500 text-white px-3 py-1 rounded text-xs"
+        >
+          Cancel
+        </button>
+      </div>
+    )}
+  </div>
+))}
+
               </div>
               <div className="mb-6">
                 <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
