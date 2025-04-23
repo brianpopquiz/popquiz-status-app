@@ -281,28 +281,35 @@ weekStart.setHours(0, 0, 0, 0);
 
 
   [""],
-  ["Tech", "Client", "Time Today", "Time This Week"],
-...Object.entries(techClientDay).flatMap(([tech, clients]) => {
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  weekStart.setHours(0, 0, 0, 0);
+ ["Tech", "Client", "Time Today", "Time This Week"],
+...TECHS.flatMap(tech => {
+  return CLIENTS.map(client => {
+    let dayMs = 0;
+    let weekMs = 0;
 
-  return Object.entries(clients).map(([client, dayMs]) => {
-    const weekMs = logs
-      .filter(l => l.tech === tech && l.client === client && l.endTime)
-      .reduce((acc, l) => {
-        const start = new Date(l.startTime);
-        const end = new Date(l.endTime);
-        if (!isNaN(start) && !isNaN(end) && start >= weekStart) {
-          const delta = end - start;
-          return acc + (delta > 0 ? delta : 0);
-        }
-        return acc;
-      }, 0);
+    logs.forEach(l => {
+      if (l.tech !== tech || l.client !== client || !l.endTime) return;
 
-    return [tech, client, getDuration(0, weekMs), getDuration(0, dayMs)];
+      const start = new Date(l.startTime);
+      const end = new Date(l.endTime);
+      const delta = end - start;
+      if (isNaN(start) || isNaN(end) || delta <= 0) return;
+
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+
+      if (start >= weekStart) weekMs += delta;
+      if (start >= dayStart) dayMs += delta;
+    });
+
+    return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
   });
 }),
+
 
 ].map(r => r.join(",")).join("\n");
 
