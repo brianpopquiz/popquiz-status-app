@@ -235,14 +235,6 @@ export default function App() {
       fetchLogs();
     }
   };
-
-const handleExportWeekly = () => {
-  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
-  const weekStart = new Date();
-weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-weekStart.setHours(0, 0, 0, 0);
-
-  const totals = getTechTotals(logs);
 const saveEdit = async () => {
   if (!editingLog || !editingLog.id) return;
 
@@ -254,6 +246,14 @@ const saveEdit = async () => {
   setEditingLog(null);
   fetchLogs(); // refresh logs
 };
+const handleExportWeekly = () => {
+  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
+  const weekStart = new Date();
+weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+weekStart.setHours(0, 0, 0, 0);
+
+  const totals = getTechTotals(logs);
+
  const csv = [
   // Section 1: Activity Logs
   ["Tech", "Task", "Client", "Date", "Start", "End", "Duration"],
