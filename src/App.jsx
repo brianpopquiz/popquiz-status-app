@@ -305,8 +305,11 @@ weekStart.setHours(0, 0, 0, 0);
       if (start >= weekStart) weekMs += delta;
       if (start >= dayStart) dayMs += delta;
     });
+  if (dayMs > 0 || weekMs > 0) {
+  return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
+}
+return null;
 
-    return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
   });
 }),
 
