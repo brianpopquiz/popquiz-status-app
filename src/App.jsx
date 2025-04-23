@@ -305,13 +305,14 @@ weekStart.setHours(0, 0, 0, 0);
       if (start >= weekStart) weekMs += delta;
       if (start >= dayStart) dayMs += delta;
     });
-  if (dayMs > 0 || weekMs > 0) {
-  return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
-}
-return null;
 
-  });
+    if (dayMs > 0 || weekMs > 0) {
+      return [tech, client, getDuration(0, dayMs), getDuration(0, weekMs)];
+    }
+    return null;
+  }).filter(Boolean); // << This line removes the nulls
 }),
+
 
 
 ].map(r => r.join(",")).join("\n");
