@@ -257,7 +257,7 @@ weekStart.setHours(0, 0, 0, 0);
  const csv = [
   // Section 1: Activity Logs
   ["Tech", "Status", "Client", "Date", "Start", "End", "Duration"],
-  ...summary.map(x => [x.tech, x.task, x.client, x.date, x.start, x.end, x.duration]),
+  ...summary.map(x => [x.tech, x.status, x.client, x.date, x.start, x.end, x.duration]),
 
   [""],
   ["Tech", "Total Time Today", "Total Time This Week"],
