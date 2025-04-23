@@ -192,9 +192,34 @@ export default function App() {
   const selectedTech = isAdmin && overrideTech ? overrideTech : tech;
 
   const fetchLogs = async () => {
-    const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
-    setLogs(data);
-  };
+  const now = new Date();
+  const { data } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
+
+  const expiredIds = [];
+
+  for (const log of data) {
+    if (!log.endTime) {
+      const start = new Date(log.startTime);
+      const hoursOpen = (now - start) / (1000 * 60 * 60);
+      const maxHours = log.status === "Working ticket for:" ? 2 : 8;
+
+      if (hoursOpen >= maxHours) {
+        await supabase.from("status_logs").update({ endTime: now.toISOString() }).eq("id", log.id);
+        expiredIds.push(log.id);
+      }
+    }
+  }
+
+  const { data: refreshed } = await supabase.from("status_logs").select("*").order("startTime", { ascending: false });
+
+  const withAutoExpireFlags = refreshed.map(l => ({
+    ...l,
+    _autoExpired: expiredIds.includes(l.id)
+  }));
+
+  setLogs(withAutoExpireFlags);
+};
+
 
   useEffect(() => {
     fetchLogs();
@@ -420,7 +445,7 @@ URL.revokeObjectURL(url);
                 ))}
                 {filter === "completed" && completedLogs.map(log => (
   <div key={log.id} className="text-sm text-gray-700 mb-2">
-    ✅ <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
+    ✅ {log._autoExpired && <span title="Auto-expired" className="ml-1 text-red-500">⏰</span>} <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}
     {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
     {isAdmin && (
       <>
