@@ -14,6 +14,7 @@ const STATUSES = [
   "Working on project",
   "Client call",
   "Business Improvement",
+  "PopQuiz Internal Task",
   "On break",
   "In meeting",
   "Studying",
@@ -21,6 +22,7 @@ const STATUSES = [
   "Onsite",
   "Out for the day",
 ];
+
 const CLIENT_REQUIRED_STATUSES = [
   "Working ticket for:",
   "Working on project",
