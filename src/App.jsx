@@ -265,7 +265,10 @@ const saveEdit = async () => {
 
   await supabase
     .from("status_logs")
-    .update({ endTime: editingLog.endTime })
+    .update({
+      startTime: editingLog.startTime,
+      endTime: editingLog.endTime,
+    })
     .eq("id", editingLog.id);
 
   setEditingLog(null);
@@ -450,7 +453,7 @@ URL.revokeObjectURL(url);
     {isAdmin && (
       <>
         <button
-          onClick={() => setEditingLog(log)}
+          onClick={() => setEditingLog({ ...log })}
           className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs"
         >
           Edit
@@ -466,6 +469,16 @@ URL.revokeObjectURL(url);
 
     {editingLog?.id === log.id && (
       <div className="mt-2">
+        <label className="block text-sm font-medium">New Start Time:</label>
+        <input
+        type="datetime-local"
+        value={new Date(editingLog.startTime).toISOString().slice(0, 16)}
+        onChange={(e) =>
+          setEditingLog({ ...editingLog, startTime: new Date(e.target.value).toISOString() })
+        }
+        className="border rounded px-2 py-1 mr-2 mb-2"
+      />
+
         <label className="block text-sm font-medium">New End Time:</label>
         <input
           type="datetime-local"
