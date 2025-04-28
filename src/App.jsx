@@ -191,6 +191,15 @@ export default function App() {
   const [filter, setFilter] = useState("active");
   const [confirmSecond, setConfirmSecond] = useState(false);
   const [editingLog, setEditingLog] = useState(null);
+  const [showMissedForm, setShowMissedForm] = useState(false);
+  const [missedEntry, setMissedEntry] = useState({
+  tech: "",
+  status: "",
+  client: "",
+  startTime: "",
+  endTime: ""
+});
+
   const selectedTech = isAdmin && overrideTech ? overrideTech : tech;
 
   const fetchLogs = async () => {
@@ -393,14 +402,95 @@ URL.revokeObjectURL(url);
             </div>
           ) : (
             <>
-              {isAdmin && (
-                <div>
-                  <select value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
-                    <option value="">Self</option>
-                    {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              )}
+             {isAdmin && (
+              <div>
+                <select value={overrideTech} onChange={(e) => setOverrideTech(e.target.value)}>
+                <option value="">Self</option>
+              {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+
+              <button
+              className="ml-2 bg-purple-600 text-white px-3 py-1 rounded"
+                onClick={() => setShowMissedForm(true)}
+                      >
+      Add Missed Time
+    </button>
+  </div>
+)}
+              {showMissedForm && (
+  <div className="border p-4 mt-4 bg-gray-100 rounded">
+    <h3 className="text-lg font-semibold mb-2">Add Missed Time</h3>
+
+    <select
+      value={missedEntry.tech}
+      onChange={(e) => setMissedEntry({ ...missedEntry, tech: e.target.value })}
+      className="block mb-2 border px-2 py-1"
+    >
+      <option value="">Select Tech</option>
+      {TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+    </select>
+
+    <select
+      value={missedEntry.status}
+      onChange={(e) => setMissedEntry({ ...missedEntry, status: e.target.value })}
+      className="block mb-2 border px-2 py-1"
+    >
+      <option value="">Select Status</option>
+      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+    </select>
+
+    <select
+      value={missedEntry.client}
+      onChange={(e) => setMissedEntry({ ...missedEntry, client: e.target.value })}
+      className="block mb-2 border px-2 py-1"
+    >
+      <option value="">Select Client</option>
+      {CLIENTS.map(c => <option key={c} value={c}>{c}</option>)}
+    </select>
+
+    <label className="block text-sm font-medium">Start Time</label>
+    <input
+      type="datetime-local"
+      value={missedEntry.startTime}
+      onChange={(e) => setMissedEntry({ ...missedEntry, startTime: e.target.value })}
+      className="block mb-2 border px-2 py-1"
+    />
+
+    <label className="block text-sm font-medium">End Time</label>
+    <input
+      type="datetime-local"
+      value={missedEntry.endTime}
+      onChange={(e) => setMissedEntry({ ...missedEntry, endTime: e.target.value })}
+      className="block mb-2 border px-2 py-1"
+    />
+
+    <button
+      onClick={async () => {
+        await supabase.from("status_logs").insert([{
+          tech: missedEntry.tech,
+          status: missedEntry.status,
+          client: missedEntry.client,
+          startTime: new Date(missedEntry.startTime).toISOString(),
+          endTime: new Date(missedEntry.endTime).toISOString()
+        }]);
+        setShowMissedForm(false);
+        fetchLogs();
+      }}
+      className="bg-green-600 text-white px-4 py-2 rounded mr-2"
+    >
+      Submit
+    </button>
+
+    <button
+      onClick={() => setShowMissedForm(false)}
+      className="bg-gray-400 text-white px-4 py-2 rounded"
+    >
+      Cancel
+    </button>
+  </div>
+)}
+
+
               <div className="my-2">
                 <select value={status} onChange={(e) => setStatus(e.target.value)} className="mr-2">
                   <option value="">Select Status</option>
