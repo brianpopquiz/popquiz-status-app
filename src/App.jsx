@@ -435,6 +435,7 @@ URL.revokeObjectURL(url);
       Add Missed Time
     </button>
   </div>
+       {(() => (
               <div className="my-2">
   <label className="mr-2">
     <input
@@ -449,7 +450,7 @@ URL.revokeObjectURL(url);
   </label>
 </div>
 
-)}
+))}
               {showMissedForm && (
   <div className="border p-4 mt-4 bg-gray-100 rounded">
     <h3 className="text-lg font-semibold mb-2">Add Missed Time</h3>
