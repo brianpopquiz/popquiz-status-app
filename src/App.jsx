@@ -192,6 +192,7 @@ export default function App() {
   const [confirmSecond, setConfirmSecond] = useState(false);
   const [editingLog, setEditingLog] = useState(null);
   const [showMissedForm, setShowMissedForm] = useState(false);
+  const [disableTimeouts, setDisableTimeouts] = useState(localStorage.getItem("disableTimeouts") === "true");
   const [missedEntry, setMissedEntry] = useState({
   tech: "",
   status: "",
@@ -237,6 +238,24 @@ export default function App() {
     const interval = setInterval(fetchLogs, 30000);
     return () => clearInterval(interval);
   }, []);
+  useEffect(() => {
+  if (disableTimeouts) return; // ✅ Skip expiration logic if toggled off
+
+  const interval = setInterval(async () => {
+    const { data } = await supabase.from("status_logs").select("*").eq("endTime", null);
+    const now = new Date();
+
+    for (let log of data) {
+      const start = new Date(log.startTime);
+      const maxMs = log.status === "Working ticket for:" ? 2 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
+      if (now - start > maxMs) {
+        await supabase.from("status_logs").update({ endTime: now.toISOString() }).eq("id", log.id);
+      }
+    }
+  }, 60000); // every 60 seconds
+
+  return () => clearInterval(interval);
+}, [disableTimeouts]);
 
   const activeLogs = logs.filter(log => !log.endTime);
   const completedLogs = logs.filter(log => log.endTime);
@@ -416,6 +435,20 @@ URL.revokeObjectURL(url);
       Add Missed Time
     </button>
   </div>
+              <div className="my-2">
+  <label className="mr-2">
+    <input
+      type="checkbox"
+      checked={disableTimeouts}
+      onChange={(e) => {
+        setDisableTimeouts(e.target.checked);
+        localStorage.setItem("disableTimeouts", e.target.checked.toString());
+      }}
+    />
+    Disable Auto Timeout Logic
+  </label>
+</div>
+
 )}
               {showMissedForm && (
   <div className="border p-4 mt-4 bg-gray-100 rounded">
