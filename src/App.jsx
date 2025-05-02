@@ -447,7 +447,7 @@ URL.revokeObjectURL(url);
         localStorage.setItem("disableTimeouts", e.target.checked.toString());
       }}
     />
-    Disable Auto Timeout Logic
+    Disable Auto Timeout 
   </label>
 </div>
 
