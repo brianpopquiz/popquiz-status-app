@@ -34,7 +34,7 @@ const BREAK_STATUSES = ["On break", "Out for the day"];
 const CLIENTS = [
   "Novick", "Fabio", "Sullivans", "Pro Storm", "Metal and Wood", "DDS",
   "Foglia", "Northeast Fence", "Steel Penny", "Super Impulse", "Pennypack",
-  "St Doms", "Ferreira Law", "Pollack Law", "Email Support", "Break Fix",
+  "St Doms", "Ferreira Law", "Pollack Law", "Harmony Decking", "ITAF", "Email Support", "Break Fix",
   "Residential Member", "Residential", "M&T", "Make and Take", "Your Approved Contractors", "Winderco", "Groom'n Room", "Vendor Call"
 ];
 
