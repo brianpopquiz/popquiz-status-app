@@ -654,7 +654,7 @@ URL.revokeObjectURL(url);
   </div>
 ))}
 
-              </div>
+              
               <div className="mb-6">
                 <h2 className="text-lg font-bold">Daily and Weekly Totals</h2>
                 <ul>
