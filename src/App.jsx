@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { format } from 'date-fns';
+
 
 const supabaseUrl = "https://whgpzllhmnitibslaick.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ3B6bGxobW5pdGlic2xhaWNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4OTY4MjAsImV4cCI6MjA2MDQ3MjgyMH0.8mXISi_mCZdeU4ZM6n-G7XjigpetwLdc2Ms5yBRuqgo";
@@ -259,6 +261,13 @@ export default function App() {
 
   const activeLogs = logs.filter(log => !log.endTime);
   const completedLogs = logs.filter(log => log.endTime);
+  const groupedCompletedLogs = completedLogs.reduce((acc, log) => {
+  const dateKey = format(new Date(log.startTime), 'yyyy-MM-dd');
+  if (!acc[dateKey]) acc[dateKey] = [];
+  acc[dateKey].push(log);
+  return acc;
+}, {});
+
   const idleTechs = TECHS.filter(t => !activeLogs.find(log => log.tech === t));
 
   const handleStart = async () => {
@@ -573,26 +582,39 @@ URL.revokeObjectURL(url);
                     )}
                   </div>
                 ))}
-                {filter === "completed" && completedLogs.map(log => (
-  <div key={log.id} className="text-sm text-gray-700 mb-2">
-    ✅ {log._autoExpired && <span title="Auto-expired" className="ml-1 text-red-500">⏰</span>} <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}
-    {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
-    {isAdmin && (
-      <>
-        <button
-          onClick={() => setEditingLog({ ...log })}
-          className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs"
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => handleDelete(log.id)}
-          className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-xs"
-        >
-          Delete
-        </button>
-      </>
-    )}
+               {filter === "completed" &&
+  Object.entries(groupedCompletedLogs).map(([date, logs]) => (
+    <div key={date}>
+      <h2 className="text-xl font-bold mt-6 mb-2">{format(new Date(date), 'PPP')}</h2>
+
+      {logs.map((log) => (
+        <div key={log.id} className="text-sm text-gray-700 mb-2">
+          ✅ {log._autoExpired && <span title="Auto-expired" className="ml-1 text-red-500">💀</span>}
+          <strong>{log.tech}</strong> – {log.status} {log.client && `(${log.client})`}<br />
+          {formatESTTime(log.startTime)} - {formatESTTime(log.endTime)} ({getDuration(log.startTime, log.endTime)})
+
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setEditingLog({ ...log })}
+                className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDelete(log.id)}
+                className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-xs"
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  ))
+}
+
 
     {editingLog?.id === log.id && (
       <div className="mt-2">
