@@ -612,7 +612,7 @@ URL.revokeObjectURL(url);
         </div>
       ))}
     </div>
-  )))
+  ))
 }
 
 
