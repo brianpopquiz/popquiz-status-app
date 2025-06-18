@@ -324,8 +324,6 @@ const totals = getTechTotals(logs, reportStart, reportEnd);
 weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 weekStart.setHours(0, 0, 0, 0);
 
-  const totals = getTechTotals(logs);
-
  const csv = [
   // Section 1: Activity Logs
   ["Tech", "Status", "Client", "Date", "Start", "End", "Duration"],
