@@ -190,6 +190,8 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [showMissedForm, setShowMissedForm] = useState(false);
   const [disableTimeouts, setDisableTimeouts] = useState(localStorage.getItem("disableTimeouts") === "true");
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
   const [missedEntry, setMissedEntry] = useState({
   tech: "",
   status: "",
