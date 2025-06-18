@@ -71,8 +71,11 @@ function getDuration(start, end) {
 }
 
 
-function getWeeklyClientBreakdown(logs) {
+function getWeeklyClientBreakdown(logs, startDate, endDate) {
   const now = new Date();
+  
+const start = startDate ? new Date(startDate) : new Date(0);
+const end = endDate ? new Date(endDate) : new Date();
 
 const weekStart = new Date();
 weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
@@ -94,7 +97,9 @@ todayStart.setHours(0, 0, 0, 0); // Set to start of today
 
     if (!log.endTime) return; // 🔒 Skip entries with no end time
 
-    const start = new Date(log.startTime);
+    const logStart = new Date(log.startTime);
+const logEnd = new Date(log.endTime);
+if (logStart < start || logEnd > end) return;
     const end = new Date(log.endTime);
     const ms = end - start;
     const client = log.client || "N/A";
@@ -146,8 +151,11 @@ todayStart.setHours(0, 0, 0, 0); // Set to start of today
 }
 
 
-function getTechTotals(logs) {
+function getTechTotals(logs, startDate, endDate) {
   const now = new Date();
+  const start = startDate ? new Date(startDate) : new Date(0);
+const end = endDate ? new Date(endDate) : new Date();
+
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);
 
@@ -165,8 +173,10 @@ function getTechTotals(logs) {
     if (!log.startTime || !log.endTime) return;
     if (BREAK_STATUSES.includes(log.status)) return;
 
-    const start = new Date(log.startTime);
-    const end = new Date(log.endTime);
+    const logStart = new Date(log.startTime);
+const logEnd = new Date(log.endTime);
+if (logStart < start || logEnd > end) return;
+
     if (isNaN(start) || isNaN(end)) return;
 
     const ms = end - start;
@@ -195,6 +205,8 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [showMissedForm, setShowMissedForm] = useState(false);
   const [disableTimeouts, setDisableTimeouts] = useState(localStorage.getItem("disableTimeouts") === "true");
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
   const [missedEntry, setMissedEntry] = useState({
   tech: "",
   status: "",
@@ -307,8 +319,8 @@ const saveEdit = async () => {
   fetchLogs(); // refresh logs
 };
 const handleExportWeekly = () => {
-  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
-  const weekStart = new Date();
+ const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs, reportStart, reportEnd);
+const totals = getTechTotals(logs, reportStart, reportEnd);
 weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 weekStart.setHours(0, 0, 0, 0);
 
@@ -644,6 +656,23 @@ URL.revokeObjectURL(url);
                 </ul>
               </div>
               <div className="mb-10">
+                <div className="mb-4">
+  <label className="mr-2">Start Date:</label>
+  <input
+    type="date"
+    value={reportStart}
+    onChange={(e) => setReportStart(e.target.value)}
+    className="mr-4 border px-2 py-1"
+  />
+  <label className="mr-2">End Date:</label>
+  <input
+    type="date"
+    value={reportEnd}
+    onChange={(e) => setReportEnd(e.target.value)}
+    className="border px-2 py-1"
+  />
+</div>
+
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
               </div>
