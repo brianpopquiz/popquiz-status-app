@@ -359,8 +359,6 @@ const totals = getTechTotals(logs, filteredStart, filteredEnd);
       dayStart.setHours(0, 0, 0, 0);
 
       const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      weekStart.setHours(0, 0, 0, 0);
 
       if (start >= weekStart) weekMs += delta;
       if (start >= dayStart) dayMs += delta;
