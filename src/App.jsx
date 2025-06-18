@@ -71,14 +71,13 @@ function getDuration(start, end) {
 }
 
 
-function getWeeklyClientBreakdown(logs) {
-  const now = new Date();
+function getWeeklyClientBreakdown(logs, startDate, endDate) {
+ const parsedStart = new Date(startDate);
+const parsedEnd = new Date(endDate);
 
-const weekStart = new Date();
-weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
-weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
-const todayStart = new Date();
-todayStart.setHours(0, 0, 0, 0); // Set to start of today
+const startRange = isNaN(parsedStart) ? new Date(0) : parsedStart;
+const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
+
 
 
 
@@ -96,20 +95,13 @@ todayStart.setHours(0, 0, 0, 0); // Set to start of today
 
     const start = new Date(log.startTime);
     const end = new Date(log.endTime);
+    if (isNaN(start) || isNaN(end) || start < startRange || end > endRange) return;
+
     const ms = end - start;
     const client = log.client || "N/A";
     const tech = log.tech;
     const task = log.status;
     const dateKey = start.toLocaleDateString("en-US");
-
-   if (start >= todayStart) {
-  if (!clientDayTotals[client]) clientDayTotals[client] = 0;
-  clientDayTotals[client] += ms;
-
-  if (!techClientDay[tech]) techClientDay[tech] = {};
-  if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
-  techClientDay[tech][client] += ms;
-}
 
 
       if (start >= weekStart) {
@@ -146,14 +138,12 @@ todayStart.setHours(0, 0, 0, 0); // Set to start of today
 }
 
 
-function getTechTotals(logs) {
-  const now = new Date();
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
+function getTechTotals(logs, startDate, endDate) {
+  const parsedStart = new Date(startDate);
+const parsedEnd = new Date(endDate);
 
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
-  weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
+const startRange = isNaN(parsedStart) ? new Date(0) : parsedStart;
+const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
 
   const summary = {};
 
@@ -175,8 +165,8 @@ function getTechTotals(logs) {
     const tech = log.tech;
     if (!summary[tech]) summary[tech] = { day: 0, week: 0 };
 
-    if (start >= dayStart) summary[tech].day += ms;
-    if (start >= weekStart) summary[tech].week += ms;
+    summary[tech].week += ms;
+
   });
 
   return summary;
@@ -307,12 +297,15 @@ const saveEdit = async () => {
   fetchLogs(); // refresh logs
 };
 const handleExportWeekly = () => {
-  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
-  const weekStart = new Date();
-weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const today = new Date();
+const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
 weekStart.setHours(0, 0, 0, 0);
 
-  const totals = getTechTotals(logs);
+const filteredStart = reportStart || weekStart.toISOString().slice(0, 10);
+const filteredEnd = reportEnd || new Date().toISOString().slice(0, 10);
+
+const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs, filteredStart, filteredEnd);
+const totals = getTechTotals(logs, filteredStart, filteredEnd);
 
  const csv = [
   // Section 1: Activity Logs
