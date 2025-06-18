@@ -165,7 +165,12 @@ const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
     const tech = log.tech;
     if (!summary[tech]) summary[tech] = { day: 0, week: 0 };
 
-    summary[tech].week += ms;
+// Count today's time
+const isToday = start.toDateString() === new Date().toDateString();
+if (isToday) summary[tech].day += ms;
+
+summary[tech].week += ms;
+
 
   });
 
@@ -637,6 +642,25 @@ URL.revokeObjectURL(url);
                 </ul>
               </div>
               <div className="mb-10">
+                {isAdmin && (
+  <div className="mb-4 space-x-4">
+    <label>Start Date:</label>
+    <input
+      type="date"
+      value={reportStart}
+      onChange={(e) => setReportStart(e.target.value)}
+      className="border px-2 py-1"
+    />
+    <label>End Date:</label>
+    <input
+      type="date"
+      value={reportEnd}
+      onChange={(e) => setReportEnd(e.target.value)}
+      className="border px-2 py-1"
+    />
+  </div>
+)}
+
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
               </div>
