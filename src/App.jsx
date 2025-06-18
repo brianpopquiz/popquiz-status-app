@@ -71,13 +71,14 @@ function getDuration(start, end) {
 }
 
 
-function getWeeklyClientBreakdown(logs, startDate, endDate) {
- const parsedStart = new Date(startDate);
-const parsedEnd = new Date(endDate);
+function getWeeklyClientBreakdown(logs) {
+  const now = new Date();
 
-const startRange = isNaN(parsedStart) ? new Date(0) : parsedStart;
-const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
-
+const weekStart = new Date();
+weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Set to Sunday
+weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0); // Set to start of today
 
 
 
@@ -95,13 +96,20 @@ const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
 
     const start = new Date(log.startTime);
     const end = new Date(log.endTime);
-    if (isNaN(start) || isNaN(end) || start < startRange || end > endRange) return;
-
     const ms = end - start;
     const client = log.client || "N/A";
     const tech = log.tech;
     const task = log.status;
     const dateKey = start.toLocaleDateString("en-US");
+
+   if (start >= todayStart) {
+  if (!clientDayTotals[client]) clientDayTotals[client] = 0;
+  clientDayTotals[client] += ms;
+
+  if (!techClientDay[tech]) techClientDay[tech] = {};
+  if (!techClientDay[tech][client]) techClientDay[tech][client] = 0;
+  techClientDay[tech][client] += ms;
+}
 
 
       if (start >= weekStart) {
@@ -138,12 +146,14 @@ const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
 }
 
 
-function getTechTotals(logs, startDate, endDate) {
-  const parsedStart = new Date(startDate);
-const parsedEnd = new Date(endDate);
+function getTechTotals(logs) {
+  const now = new Date();
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
 
-const startRange = isNaN(parsedStart) ? new Date(0) : parsedStart;
-const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0); // Normalize to midnight
 
   const summary = {};
 
@@ -165,13 +175,8 @@ const endRange = isNaN(parsedEnd) ? new Date() : parsedEnd;
     const tech = log.tech;
     if (!summary[tech]) summary[tech] = { day: 0, week: 0 };
 
-// Count today's time
-const isToday = start.toDateString() === new Date().toDateString();
-if (isToday) summary[tech].day += ms;
-
-summary[tech].week += ms;
-
-
+    if (start >= dayStart) summary[tech].day += ms;
+    if (start >= weekStart) summary[tech].week += ms;
   });
 
   return summary;
@@ -190,8 +195,6 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [showMissedForm, setShowMissedForm] = useState(false);
   const [disableTimeouts, setDisableTimeouts] = useState(localStorage.getItem("disableTimeouts") === "true");
-  const [reportStart, setReportStart] = useState("");
-  const [reportEnd, setReportEnd] = useState("");
   const [missedEntry, setMissedEntry] = useState({
   tech: "",
   status: "",
@@ -304,15 +307,12 @@ const saveEdit = async () => {
   fetchLogs(); // refresh logs
 };
 const handleExportWeekly = () => {
-  const today = new Date();
-const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+  const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs);
+  const weekStart = new Date();
+weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 weekStart.setHours(0, 0, 0, 0);
 
-const filteredStart = reportStart || weekStart.toISOString().slice(0, 10);
-const filteredEnd = reportEnd || new Date().toISOString().slice(0, 10);
-
-const { summary, clientDayTotals, clientWeekTotals, techClientDay } = getWeeklyClientBreakdown(logs, filteredStart, filteredEnd);
-const totals = getTechTotals(logs, filteredStart, filteredEnd);
+  const totals = getTechTotals(logs);
 
  const csv = [
   // Section 1: Activity Logs
@@ -359,6 +359,8 @@ const totals = getTechTotals(logs, filteredStart, filteredEnd);
       dayStart.setHours(0, 0, 0, 0);
 
       const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      weekStart.setHours(0, 0, 0, 0);
 
       if (start >= weekStart) weekMs += delta;
       if (start >= dayStart) dayMs += delta;
@@ -642,25 +644,6 @@ URL.revokeObjectURL(url);
                 </ul>
               </div>
               <div className="mb-10">
-                {isAdmin && (
-  <div className="mb-4 space-x-4">
-    <label>Start Date:</label>
-    <input
-      type="date"
-      value={reportStart}
-      onChange={(e) => setReportStart(e.target.value)}
-      className="border px-2 py-1"
-    />
-    <label>End Date:</label>
-    <input
-      type="date"
-      value={reportEnd}
-      onChange={(e) => setReportEnd(e.target.value)}
-      className="border px-2 py-1"
-    />
-  </div>
-)}
-
                 <h2 className="text-lg font-bold">Weekly Client Report</h2>
                 <button onClick={handleExportWeekly} className="bg-gray-800 text-white px-4 py-2 rounded">Download Weekly Report</button>
               </div>
