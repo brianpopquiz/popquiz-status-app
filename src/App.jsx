@@ -34,10 +34,35 @@ const CLIENT_REQUIRED_STATUSES = [
 ];
 const BREAK_STATUSES = ["On break", "Out for the day"];
 const CLIENTS = [
-  "Novick", "Fabio", "Sullivans", "Pro Storm", "Metal and Wood", "DDS",
-  "Foglia", "Northeast Fence", "Steel Penny", "Super Impulse", "Pennypack",
-  "St Doms", "Ferreira Law", "Pollack Law", "Harmony Decking", "ITAF", "Email Support", "Break Fix",
-  "Residential Member", "Residential", "M&T", "Make and Take", "Your Approved Contractors", "Winderco", "Groom'n Room", "Vendor Call"
+  "Break Fix",
+  "Crest Paper",
+  "DDS",
+  "Email Support",
+  "Fabio",
+  "Ferreira Law",
+  "Financial Insights",
+  "Foglia",
+  "Friends and Family",
+  "Groom'n Room",
+  "Harmony Decking",
+  "ITAF",
+  "M&T",
+  "Make and Take",
+  "Metal and Wood",
+  "Northeast Fence",
+  "Novick",
+  "Pennypack",
+  "Pollack Law",
+  "Pro Storm",
+  "Residential",
+  "Residential Member",
+  "Steel Penny",
+  "St Doms",
+  "Sullivans",
+  "Super Impulse",
+  "Vendor Call",
+  "Winderco",
+  "Your Approved Contractors"
 ];
 
 function formatESTTime(isoTime) {
